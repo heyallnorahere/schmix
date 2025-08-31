@@ -1,9 +1,22 @@
 #pragma once
 
-#include <string>
-#include <vector>
+// integer types
+#include <cstdint>
+#include <cstddef>
+
+// memory allocation
+#include "schmix/core/Memory.h"
+
+// system
 #include <stdexcept>
+
+// time
 #include <chrono>
 
-#include <stdint.h>
-#include <stddef.h>
+// data structures
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+
+// primitives
+#include <string>

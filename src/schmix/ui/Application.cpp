@@ -85,8 +85,8 @@ namespace schmix {
 
     bool Application::CreateWindow() {
         static const std::string title = "Schmix: shitass DAW";
-        static constexpr uint32_t width = 1600;
-        static constexpr uint32_t height = 900;
+        static constexpr std::uint32_t width = 1600;
+        static constexpr std::uint32_t height = 900;
 
         static constexpr SDL_WindowFlags flags =
             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
@@ -238,7 +238,7 @@ namespace schmix {
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
 
-            uint32_t eventClass = (((uint32_t)event.type) >> 8) & 0xFF;
+            std::uint32_t eventClass = (((std::uint32_t)event.type) >> 8) & 0xFF;
             if (eventClass == 0x02 && event.window.windowID != appWindowID) {
                 // window event not pertaining to ours. skip
                 continue;
