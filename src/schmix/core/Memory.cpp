@@ -32,6 +32,14 @@ namespace schmix {
         return newBlock;
     }
 
+    void* Memory::AllocateZeroedArray(std::size_t nmemb, std::size_t size) {
+        void* block = std::calloc(nmemb, size);
+
+        // todo: record
+        
+        return block;
+    }
+
     void Memory::Copy(const void* src, void* dst, std::size_t size) { std::memcpy(dst, src, size); }
 
     void Memory::Fill(void* dst, std::uint8_t value, std::size_t size) {

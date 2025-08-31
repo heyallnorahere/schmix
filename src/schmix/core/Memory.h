@@ -7,7 +7,9 @@ namespace schmix {
     public:
         static void* Allocate(std::size_t size);
         static void Free(void* block);
+
         static void* Reallocate(void* block, std::size_t newSize);
+        static void* AllocateZeroedArray(std::size_t nmemb, std::size_t size);
 
         static void Copy(const void* src, void* dst, std::size_t size);
         static void Fill(void* dst, std::uint8_t value, std::size_t size);

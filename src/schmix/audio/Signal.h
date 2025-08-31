@@ -51,7 +51,7 @@ namespace schmix {
 
             std::size_t size = m_Length * sizeof(Sample);
             if (size > 0) {
-                m_Data = Memory::Allocate(size);
+                m_Data = (Sample*)Memory::Allocate(size);
                 Memory::Copy(src.m_Data, m_Data, size);
             } else {
                 m_Data = nullptr;
@@ -69,7 +69,7 @@ namespace schmix {
 
             std::size_t size = m_Length * sizeof(Sample);
             if (size > 0) {
-                m_Data = Memory::Allocate(size);
+                m_Data = (Sample*)Memory::Allocate(size);
                 Memory::Copy(src.m_Data, m_Data, size);
             } else {
                 m_Data = nullptr;
@@ -142,6 +142,14 @@ namespace schmix {
         }
 
         MonoSignal operator+(const MonoSignal& other) const {
+            if (other.IsEmpty()) {
+                return *this;
+            }
+
+            if (IsEmpty()) {
+                return other;
+            }
+
             if (m_Length != other.m_Length) {
                 throw std::runtime_error("Differing signal lengths!");
             }
@@ -155,12 +163,16 @@ namespace schmix {
         }
 
         MonoSignal& operator+=(const MonoSignal& other) {
-            if (m_Length != other.m_Length) {
-                throw std::runtime_error("Differing signal lengths!");
-            }
+            if (IsEmpty()) {
+                *this = other;
+            } else if (other.IsPresent()) {
+                if (m_Length != other.m_Length) {
+                    throw std::runtime_error("Differing signal lengths!");
+                }
 
-            for (std::size_t i = 0; i < m_Length; i++) {
-                m_Data[i] += other[i];
+                for (std::size_t i = 0; i < m_Length; i++) {
+                    m_Data[i] += other[i];
+                }
             }
 
             return *this;
@@ -176,6 +188,14 @@ namespace schmix {
         }
 
         MonoSignal operator-(const MonoSignal& other) const {
+            if (other.IsEmpty()) {
+                return *this;
+            }
+
+            if (IsEmpty()) {
+                return -other;
+            }
+
             if (m_Length != other.m_Length) {
                 throw std::runtime_error("Differing signal lengths!");
             }
@@ -189,12 +209,16 @@ namespace schmix {
         }
 
         MonoSignal& operator-=(const MonoSignal& other) {
-            if (m_Length != other.m_Length) {
-                throw std::runtime_error("Differing signal lengths!");
-            }
+            if (IsEmpty()) {
+                *this = -other;
+            } else if (other.IsPresent()) {
+                if (m_Length != other.m_Length) {
+                    throw std::runtime_error("Differing signal lengths!");
+                }
 
-            for (std::size_t i = 0; i < m_Length; i++) {
-                m_Data[i] -= other[i];
+                for (std::size_t i = 0; i < m_Length; i++) {
+                    m_Data[i] -= other[i];
+                }
             }
 
             return *this;
@@ -380,6 +404,14 @@ namespace schmix {
         }
 
         StereoSignal operator+(const StereoSignal& other) const {
+            if (other.IsEmpty()) {
+                return *this;
+            }
+
+            if (IsEmpty()) {
+                return other;
+            }
+
             if (m_Channels != other.m_Channels) {
                 throw std::runtime_error("Differing channel counts!");
             }
@@ -388,16 +420,24 @@ namespace schmix {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 result[i] = m_Data[i] + other[i];
             }
+
+            return result;
         }
 
         StereoSignal& operator+=(const StereoSignal& other) {
-            if (m_Channels != other.m_Channels) {
-                throw std::runtime_error("Differing channel counts!");
+            if (IsEmpty()) {
+                *this = other;
+            } else if (other.IsPresent()) {
+                if (m_Channels != other.m_Channels) {
+                    throw std::runtime_error("Differing channel counts!");
+                }
+
+                for (std::size_t i = 0; i < m_Channels; i++) {
+                    m_Data[i] += other[i];
+                }
             }
 
-            for (std::size_t i = 0; i < m_Channels; i++) {
-                m_Data[i] += other[i];
-            }
+            return *this;
         }
 
         StereoSignal operator-() const {
@@ -405,9 +445,19 @@ namespace schmix {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 result[i] = -m_Data[i];
             }
+
+            return result;
         }
 
         StereoSignal operator-(const StereoSignal& other) const {
+            if (other.IsEmpty()) {
+                return *this;
+            }
+
+            if (IsEmpty()) {
+                return -other;
+            }
+
             if (m_Channels != other.m_Channels) {
                 throw std::runtime_error("Differing channel counts!");
             }
@@ -416,16 +466,24 @@ namespace schmix {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 result[i] = m_Data[i] - other[i];
             }
+
+            return result;
         }
 
         StereoSignal& operator-=(const StereoSignal& other) {
-            if (m_Channels != other.m_Channels) {
-                throw std::runtime_error("Differing channel counts!");
+            if (IsEmpty()) {
+                *this = -other;
+            } else if (other.IsPresent()) {
+                if (m_Channels != other.m_Channels) {
+                    throw std::runtime_error("Differing channel counts!");
+                }
+
+                for (std::size_t i = 0; i < m_Channels; i++) {
+                    m_Data[i] -= other[i];
+                }
             }
 
-            for (std::size_t i = 0; i < m_Channels; i++) {
-                m_Data[i] -= other[i];
-            }
+            return *this;
         }
 
         StereoSignal operator*(double scalar) const {
@@ -433,12 +491,16 @@ namespace schmix {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 result[i] = m_Data[i] * scalar;
             }
+
+            return result;
         }
 
         StereoSignal& operator*=(double scalar) {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 m_Data[i] *= scalar;
             }
+
+            return *this;
         }
 
         StereoSignal operator/(double scalar) const {
@@ -446,12 +508,16 @@ namespace schmix {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 result[i] = m_Data[i] / scalar;
             }
+
+            return result;
         }
 
         StereoSignal& operator/=(double scalar) {
             for (std::size_t i = 0; i < m_Channels; i++) {
                 m_Data[i] /= scalar;
             }
+
+            return *this;
         }
 
     private:

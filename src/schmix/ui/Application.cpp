@@ -1,6 +1,8 @@
 #include "schmixpch.h"
 #include "schmix/ui/Application.h"
 
+#include "schmix/audio/Mixer.h"
+
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 
@@ -30,12 +32,20 @@ namespace schmix {
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
+        if (m_Stream != nullptr) {
+            SDL_DestroyAudioStream(m_Stream);
+        }
+
+        if (m_Mixer != nullptr) {
+            delete m_Mixer;
+        }
+
         if (m_Device != nullptr) {
             SDL_WaitForGPUIdle(m_Device);
         }
 
         if (m_Context != nullptr) {
-            ImGui::SetCurrentContext(m_Context);
+            SetImGuiContext();
 
             ImGui_ImplSDLGPU3_Shutdown();
             ImGui_ImplSDL3_Shutdown();
@@ -58,6 +68,14 @@ namespace schmix {
         SDL_Quit();
     }
 
+    static void* ImGuiMemAlloc(std::size_t sz, void* user_data) { return Memory::Allocate(sz); }
+    static void ImGuiMemFree(void* ptr, void* user_data) { return Memory::Free(ptr); }
+
+    void Application::SetImGuiContext() const {
+        ImGui::SetAllocatorFunctions(ImGuiMemAlloc, ImGuiMemFree);
+        ImGui::SetCurrentContext(m_Context);
+    }
+
     void Application::Quit(int status) {
         m_Running = false;
         m_Status = status;
@@ -71,9 +89,12 @@ namespace schmix {
         m_Device = nullptr;
         m_SwapchainCreated = false;
 
+        m_Stream = nullptr;
+        m_Mixer = nullptr;
+
         m_Context = nullptr;
 
-        if (!CreateWindow() || !InitImGui()) {
+        if (!CreateWindow() || !InitAudio() || !InitImGui()) {
             Quit(1);
         }
     }
@@ -94,7 +115,10 @@ namespace schmix {
         static constexpr SDL_GPUShaderFormat shaderFormat =
             SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB;
 
-        if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD)) {
+        SDL_SetMemoryFunctions(Memory::Allocate, Memory::AllocateZeroedArray, Memory::Reallocate,
+                               Memory::Free);
+
+        if (!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
             return false;
         }
 
@@ -121,11 +145,35 @@ namespace schmix {
         return true;
     }
 
+    bool Application::InitAudio() {
+        static constexpr SDL_AudioDeviceID id = SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
+
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+            return false;
+        }
+
+        SDL_AudioSpec spec;
+        spec.format = SDL_AUDIO_F32;
+        spec.channels = 2;
+        spec.freq = 40960;
+
+        m_Mixer = new Mixer(spec.freq / 2, spec.freq, spec.channels);
+
+        m_Stream = SDL_OpenAudioDeviceStream(id, &spec, nullptr, nullptr);
+        if (!m_Stream) {
+            return false;
+        }
+
+        SDL_ResumeAudioStreamDevice(m_Stream);
+        return true;
+    }
+
     bool Application::InitImGui() {
         SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
         float displayScale = SDL_GetDisplayContentScale(primaryDisplay);
 
         IMGUI_CHECKVERSION();
+        ImGui::SetAllocatorFunctions(ImGuiMemAlloc, ImGuiMemFree);
 
         m_Context = ImGui::CreateContext();
         ImGui::SetCurrentContext(m_Context);
@@ -175,12 +223,13 @@ namespace schmix {
         m_Running = true;
         while (m_Running) {
             Render();
+            ProcessAudio();
             ProcessEvents();
         }
     }
 
     void Application::Render() {
-        ImGui::SetCurrentContext(m_Context);
+        SetImGuiContext();
 
         ImGui_ImplSDLGPU3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
@@ -229,6 +278,54 @@ namespace schmix {
         }
 
         SDL_SubmitGPUCommandBuffer(cmdBuffer);
+    }
+
+    static void AddSineSignal(double frequency, Mixer* mixer, std::uint32_t channel) {
+        static std::size_t sample = 0;
+
+        Mixer::Signal signal(mixer->GetAudioChannels(), mixer->GetChunkSize());
+
+        std::size_t sampleRate = mixer->GetSampleRate();
+        for (std::size_t i = 0; i < signal.GetLength(); i++) {
+            std::size_t currentSample = sample + i;
+
+            for (std::size_t j = 0; j < signal.GetChannels(); j++) {
+                double phaseCoefficient = 2 * std::numbers::pi * frequency;
+                double sample = std::sin(phaseCoefficient * currentSample / sampleRate);
+                signal[j][i] = (Mixer::Signal::Sample)sample;
+            }
+        }
+
+        sample += signal.GetLength();
+        mixer->AddSignalToChannel(channel, signal);
+    }
+
+    void Application::ProcessAudio() {
+        std::size_t chunkSize = m_Mixer->GetChunkSize();
+
+        int queued = SDL_GetAudioStreamQueued(m_Stream);
+        if (queued < chunkSize / 2) {
+            m_Mixer->Reset();
+
+            AddSineSignal(440, m_Mixer, 0);
+
+            Mixer::Signal output = m_Mixer->EvaluateChannel(0);
+            if (output) {
+                std::size_t channels = output.GetChannels();
+                MonoSignal<float> streamData(chunkSize * channels);
+
+                std::size_t totalSamples = streamData.GetLength();
+                for (std::size_t i = 0; i < totalSamples; i++) {
+                    std::size_t channelIndex = i % channels;
+                    std::size_t sampleIndex = i / channels;
+
+                    streamData[i] = (float)output[channelIndex][sampleIndex];
+                }
+
+                SDL_PutAudioStreamData(m_Stream, streamData.GetData(),
+                                       totalSamples * sizeof(float));
+            }
+        }
     }
 
     void Application::ProcessEvents() {

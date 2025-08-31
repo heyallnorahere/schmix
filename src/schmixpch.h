@@ -17,6 +17,11 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <stack>
 
 // primitives
 #include <string>
+
+// math
+#include <numbers>
+#include <cmath>
