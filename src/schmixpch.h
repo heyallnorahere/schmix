@@ -23,7 +23,11 @@
 // primitives
 #include <string>
 #include <atomic>
+#include <optional>
 
 // math
 #include <numbers>
 #include <cmath>
+
+// logging
+#include "schmix/core/Log.h"

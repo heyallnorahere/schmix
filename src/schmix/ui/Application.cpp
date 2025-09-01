@@ -11,10 +11,8 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlgpu3.h>
 
-#include <iostream>
-
 namespace schmix {
-    Application* s_App;
+    static Application* s_App;
 
     int Application::Run(int argc, const char** argv) {
         if (s_App != nullptr) {
@@ -73,6 +71,10 @@ namespace schmix {
         }
 
         SDL_Quit();
+
+        if (m_OwnsLogger) {
+            ResetLogger();
+        }
     }
 
     static void* ImGuiMemAlloc(std::size_t sz, void* user_data) { return Memory::Allocate(sz); }
@@ -106,15 +108,26 @@ namespace schmix {
         auto executableDirectory = m_Executable.parent_path();
 
         std::filesystem::path resourceDir;
+        std::optional<std::filesystem::path> logDir;
         if (executableDirectory.filename().string() == "bin") {
             resourceDir = executableDirectory / "../share/schmix";
         } else {
             resourceDir = std::filesystem::current_path() / "assets";
+            logDir = std::filesystem::current_path() / "logs";
         }
 
         m_ResourceDirectory = resourceDir.lexically_normal();
+        m_OwnsLogger = CreateLogger(logDir);
+
+        // todo: dump build info
+        SCHMIX_INFO("Hi!");
+        SCHMIX_INFO("Executable path: {}", m_Executable.string().c_str());
+        SCHMIX_INFO("Resource directory: {}", m_ResourceDirectory.string().c_str());
+
+        SCHMIX_INFO("Initializing...");
 
         if (!CreateWindow() || !InitAudio() || !InitImGui() || !InitRuntime()) {
+            SCHMIX_ERROR("Initialization failed! Exiting 1...");
             Quit(1);
         }
     }
@@ -135,15 +148,20 @@ namespace schmix {
         static constexpr SDL_GPUShaderFormat shaderFormat =
             SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB;
 
-        SDL_SetMemoryFunctions(Memory::Allocate, Memory::AllocateZeroedArray, Memory::Reallocate,
-                               Memory::Free);
+        if (!SDL_SetMemoryFunctions(Memory::Allocate, Memory::AllocateZeroedArray,
+                                    Memory::Reallocate, Memory::Free)) {
+            SCHMIX_ERROR("Failed to set SDL memory callbacks!");
+            return false;
+        }
 
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+            SCHMIX_ERROR("Failed to initialize SDL video and gamepad subsystems!");
             return false;
         }
 
         m_Window = SDL_CreateWindow(title.c_str(), (int)width, (int)height, flags);
         if (m_Window == nullptr) {
+            SCHMIX_ERROR("Failed to create SDL window: {}", SDL_GetError());
             return false;
         }
 
@@ -151,16 +169,22 @@ namespace schmix {
 
         m_Device = SDL_CreateGPUDevice(shaderFormat, true, nullptr);
         if (m_Device == nullptr) {
+            SCHMIX_ERROR("Failed to acquire SDL graphics device: {}", SDL_GetError());
             return false;
         }
 
         if (!SDL_ClaimWindowForGPUDevice(m_Device, m_Window)) {
+            SCHMIX_ERROR("Failed to create window swapchain: {}", SDL_GetError());
             return false;
         }
 
         m_SwapchainCreated = true;
 
-        SDL_SetGPUSwapchainParameters(m_Device, m_Window, s_SwapchainComposition, s_PresentMode);
+        if (!SDL_SetGPUSwapchainParameters(m_Device, m_Window, s_SwapchainComposition,
+                                           s_PresentMode)) {
+            SCHMIX_ERROR("Failed to configure window swapchain: {}", SDL_GetError());
+            return false;
+        }
 
         return true;
     }
@@ -181,6 +205,7 @@ namespace schmix {
 
         m_Stream = SDL_OpenAudioDeviceStream(id, &spec, nullptr, nullptr);
         if (!m_Stream) {
+            SCHMIX_ERROR("Failed to open audio stream!");
             return false;
         }
 
@@ -238,6 +263,7 @@ namespace schmix {
     bool Application::InitRuntime() {
         m_Runtime = new ScriptRuntime(m_ResourceDirectory / "runtime");
         if (!m_Runtime->IsInitialized()) {
+            SCHMIX_ERROR("Failed to initialize managed script runtime!");
             return false;
         }
 

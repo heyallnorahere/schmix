@@ -45,6 +45,8 @@ namespace schmix {
         bool m_Running;
         int m_Status;
 
+        bool m_OwnsLogger;
+
         SDL_Window* m_Window;
         SDL_GPUDevice* m_Device;
         bool m_SwapchainCreated;
