@@ -1,3 +1,6 @@
 [submodule "vendor/imgui"]
 	path = vendor/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "vendor/Coral"]
+	path = vendor/Coral
+	url = https://github.com/heyallnorahere/Coral.git

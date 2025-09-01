@@ -1,5 +1,7 @@
 #pragma once
 
+#include "schmix/audio/Mixer.h"
+
 typedef struct SDL_Window SDL_Window;
 typedef struct SDL_GPUDevice SDL_GPUDevice;
 typedef struct SDL_AudioStream SDL_AudioStream;
@@ -7,8 +9,6 @@ typedef struct SDL_AudioStream SDL_AudioStream;
 struct ImGuiContext;
 
 namespace schmix {
-    class Mixer;
-
     class Application {
     public:
         static int Run(int argc, const char** argv);
@@ -30,6 +30,7 @@ namespace schmix {
         bool CreateWindow();
         bool InitAudio();
         bool InitImGui();
+        bool InitRuntime();
 
         void Loop();
         void Render();
@@ -43,9 +44,11 @@ namespace schmix {
         SDL_GPUDevice* m_Device;
         bool m_SwapchainCreated;
 
-        Mixer* m_Mixer;
+        Ref<Mixer> m_Mixer;
         SDL_AudioStream* m_Stream;
 
         ImGuiContext* m_Context;
+
+        ScriptRuntime* m_Runtime;
     };
 } // namespace schmix

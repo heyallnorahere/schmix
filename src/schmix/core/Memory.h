@@ -1,6 +1,7 @@
 #pragma once
 
 #include <new>
+#include <memory>
 
 namespace schmix {
     class Memory {

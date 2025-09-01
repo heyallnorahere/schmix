@@ -271,6 +271,20 @@ namespace schmix {
         using Sample = _Sample;
         using Component = MonoSignal<Sample>;
 
+        static StereoSignal<Sample> FromInterleaved(std::size_t channels, std::size_t length,
+                                                    const Sample* data) {
+            StereoSignal<Sample> result(channels, length);
+
+            for (std::size_t i = 0; i < length; i++) {
+                for (std::size_t j = 0; j < channels; j++) {
+                    std::size_t interleavedIndex = i * channels + j;
+                    result[j][i] = data[interleavedIndex];
+                }
+            }
+
+            return result;
+        }
+
         StereoSignal() {
             m_Channels = 0;
             m_Length = 0;

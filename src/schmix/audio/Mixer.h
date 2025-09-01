@@ -1,9 +1,10 @@
 #pragma once
+#include "schmix/core/Ref.h"
 
 #include "schmix/audio/Signal.h"
 
 namespace schmix {
-    class Mixer {
+    class Mixer : public RefCounted {
     public:
         using Signal = StereoSignal<double>;
 

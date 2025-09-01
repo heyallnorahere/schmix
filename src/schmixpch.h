@@ -9,6 +9,7 @@
 
 // system
 #include <stdexcept>
+#include <filesystem>
 
 // time
 #include <chrono>
@@ -21,6 +22,7 @@
 
 // primitives
 #include <string>
+#include <atomic>
 
 // math
 #include <numbers>

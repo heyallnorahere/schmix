@@ -21,7 +21,7 @@ set_target_properties(schmix_imgui PROPERTIES CXX_STANDARD 11)
 
 file(GLOB_RECURSE SCHMIX_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 add_executable(schmix ${SCHMIX_SRC})
-target_link_libraries(schmix PRIVATE schmix_imgui SDL3::SDL3)
+target_link_libraries(schmix PRIVATE schmix_imgui SDL3::SDL3 Coral.Native)
 target_include_directories(schmix PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(schmix PROPERTIES CXX_STANDARD 20)
 target_precompile_headers(schmix PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/schmixpch.h")

@@ -1,8 +1,6 @@
 #include "schmixpch.h"
 #include "schmix/ui/Application.h"
 
-#include "schmix/audio/Mixer.h"
-
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 
@@ -34,10 +32,6 @@ namespace schmix {
     Application::~Application() {
         if (m_Stream != nullptr) {
             SDL_DestroyAudioStream(m_Stream);
-        }
-
-        if (m_Mixer != nullptr) {
-            delete m_Mixer;
         }
 
         if (m_Device != nullptr) {
@@ -157,7 +151,7 @@ namespace schmix {
         spec.channels = 2;
         spec.freq = 40960;
 
-        m_Mixer = new Mixer(spec.freq / 2, spec.freq, spec.channels);
+        m_Mixer = Ref<Mixer>::Create(spec.freq / 2, spec.freq, spec.channels);
 
         m_Stream = SDL_OpenAudioDeviceStream(id, &spec, nullptr, nullptr);
         if (!m_Stream) {
@@ -280,7 +274,7 @@ namespace schmix {
         SDL_SubmitGPUCommandBuffer(cmdBuffer);
     }
 
-    static void AddSineSignal(double frequency, Mixer* mixer, std::uint32_t channel) {
+    static void AddSineSignal(double frequency, const Ref<Mixer>& mixer, std::uint32_t channel) {
         static std::size_t sample = 0;
 
         Mixer::Signal signal(mixer->GetAudioChannels(), mixer->GetChunkSize());
