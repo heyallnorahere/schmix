@@ -2,9 +2,9 @@ namespace Schmix;
 
 using System;
 
-public abstract class RefCounted : IDisposable
+public abstract unsafe class RefCounted : IDisposable
 {
-    public RefCounted(nuint address)
+    internal RefCounted(void* address)
     {
         mAddress = address;
         mCounted = false;
@@ -30,10 +30,7 @@ public abstract class RefCounted : IDisposable
             return;
         }
 
-        unsafe
-        {
-            AddRef_Impl(mAddress);
-        }
+        AddRef_Impl(mAddress);
 
         mCounted = true;
     }
@@ -45,19 +42,16 @@ public abstract class RefCounted : IDisposable
             return;
         }
 
-        unsafe
-        {
-            RemoveRef_Impl(mAddress);
-        }
+        RemoveRef_Impl(mAddress);
 
         mCounted = false;
     }
 
-    internal static unsafe delegate*<nuint, void> AddRef_Impl = null;
-    internal static unsafe delegate*<nuint, void> RemoveRef_Impl = null;
+    internal static unsafe delegate*<void*, void> AddRef_Impl = null;
+    internal static unsafe delegate*<void*, void> RemoveRef_Impl = null;
 
-    internal nuint NativeAddress => mAddress;
+    internal void* NativeAddress => mAddress;
 
-    protected readonly nuint mAddress;
+    protected readonly void* mAddress;
     private bool mCounted;
 }

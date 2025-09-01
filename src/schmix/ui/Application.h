@@ -9,6 +9,8 @@ typedef struct SDL_AudioStream SDL_AudioStream;
 struct ImGuiContext;
 
 namespace schmix {
+    class ScriptRuntime;
+
     class Application {
     public:
         static int Run(int argc, const char** argv);
@@ -25,7 +27,7 @@ namespace schmix {
         void Quit(int status = 0);
 
     private:
-        Application();
+        Application(const std::vector<std::string>& arguments);
 
         bool CreateWindow();
         bool InitAudio();
@@ -36,6 +38,9 @@ namespace schmix {
         void Render();
         void ProcessAudio();
         void ProcessEvents();
+
+        std::filesystem::path m_Executable;
+        std::filesystem::path m_ResourceDirectory;
 
         bool m_Running;
         int m_Status;

@@ -41,14 +41,14 @@ namespace schmix {
         Ref(_Ty* instance) : m_Instance(instance) {
             static_assert(std::is_base_of_v<RefCounted, _Ty>, "Type is not ref-counted!");
 
-            IncreaseRefCount();
+            IncreaseRefCount(m_Instance);
         }
 
         template <typename _Ty2>
         Ref(const Ref<_Ty2>& other) : m_Instance((_Ty*)other.m_Instance) {
             static_assert(std::is_base_of_v<_Ty, _Ty2>, "Invalid use of polymorphism!");
 
-            IncreaseRefCount();
+            IncreaseRefCount(m_Instance);
         }
 
         template <typename _Ty2>
@@ -61,18 +61,18 @@ namespace schmix {
         Ref(const Ref<_Ty>& other) : m_Instance(other.m_Instance) { IncreaseRefCount(); }
         Ref(Ref<_Ty>&& other) : m_Instance(other.m_Instance) { other.m_Instance = nullptr; }
 
-        ~Ref() { DecreaseRefCount(); }
+        ~Ref() { DecreaseRefCount(m_Instance); }
 
         Ref& operator=(std::nullptr_t) {
-            DecreaseRefCount();
+            DecreaseRefCount(m_Instance);
 
             m_Instance = nullptr;
             return *this;
         }
 
         Ref& operator=(const Ref<_Ty>& other) {
-            other.IncreaseRefCount();
-            DecreaseRefCount();
+            IncreaseRefCount(other.m_Instance);
+            DecreaseRefCount(m_Instance);
 
             m_Instance = other.m_Instance;
             return *this;
@@ -82,8 +82,8 @@ namespace schmix {
         Ref& operator=(const Ref<_Ty2>& other) {
             static_assert(std::is_base_of_v<_Ty, _Ty2>, "Invalid use of polymorphism!");
 
-            other.IncreaseRefCount();
-            DecreaseRefCount();
+            IncreaseRefCount(other.m_Instance);
+            DecreaseRefCount(m_Instance);
 
             m_Instance = (_Ty*)other.m_Instance;
             return *this;
@@ -93,7 +93,7 @@ namespace schmix {
         Ref& operator=(Ref<_Ty2>&& other) {
             static_assert(std::is_base_of_v<_Ty, _Ty2>, "Invalid use of polymorphism!");
 
-            DecreaseRefCount();
+            DecreaseRefCount(m_Instance);
             m_Instance = (_Ty*)other.m_Instance;
 
             other.m_Instance = nullptr;
@@ -110,11 +110,11 @@ namespace schmix {
         _Ty* Raw() const { return m_Instance; }
 
         void Reset(_Ty* instance = nullptr) {
-            DecreaseRefCount();
+            DecreaseRefCount(m_Instance);
             m_Instance = instance;
 
             if (m_Instance != nullptr) {
-                IncreaseRefCount();
+                IncreaseRefCount(m_Instance);
             }
         }
 

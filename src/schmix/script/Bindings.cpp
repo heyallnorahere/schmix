@@ -20,6 +20,18 @@ namespace schmix {
         mixer->AddSignalToChannel(channel, signal);
     }
 
+    static std::int32_t GetChunkSize_Impl(Mixer* mixer) {
+        return (std::int32_t)mixer->GetChunkSize();
+    }
+
+    static std::int32_t GetSampleRate_Impl(Mixer* mixer) {
+        return (std::int32_t)mixer->GetSampleRate();
+    }
+
+    static std::int32_t GetAudioChannels_Impl(Mixer* mixer) {
+        return (std::int32_t)mixer->GetAudioChannels();
+    }
+
     void Bindings::Get(std::vector<ScriptBinding>& bindings) {
         bindings.insert(
             bindings.end(),
@@ -28,6 +40,9 @@ namespace schmix {
                 { "Schmix.RefCounted", "RemoveRef_Impl", (void*)RemoveRef_Impl },
 
                 { "Schmix.Mixer", "AddSignalToChannel_Impl", (void*)AddSignalToChannel_Impl },
+                { "Schmix.Mixer", "GetChunkSize_Impl", (void*)GetChunkSize_Impl },
+                { "Schmix.Mixer", "GetSampleRate_Impl", (void*)GetSampleRate_Impl },
+                { "Schmix.Mixer", "GetAudioChannels_Impl", (void*)GetAudioChannels_Impl },
             });
     }
 } // namespace schmix

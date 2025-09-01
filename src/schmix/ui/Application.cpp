@@ -1,12 +1,17 @@
 #include "schmixpch.h"
 #include "schmix/ui/Application.h"
 
+#include "schmix/script/ScriptRuntime.h"
+#include "schmix/script/Bindings.h"
+
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlgpu3.h>
+
+#include <iostream>
 
 namespace schmix {
     Application* s_App;
@@ -16,26 +21,34 @@ namespace schmix {
             return -1;
         }
 
-        s_App = new Application;
-        s_App->Loop();
+        std::vector<std::string> arguments(argc);
+        for (int i = 0; i < argc; i++) {
+            arguments[i] = argv[i];
+        }
 
+        Application app(arguments);
+        s_App = &app;
+
+        app.Loop();
         int status = s_App->m_Status;
 
-        delete s_App;
         s_App = nullptr;
-
         return status;
     }
 
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
-        if (m_Stream != nullptr) {
-            SDL_DestroyAudioStream(m_Stream);
-        }
-
         if (m_Device != nullptr) {
             SDL_WaitForGPUIdle(m_Device);
+        }
+
+        delete m_Runtime;
+
+        m_Mixer.Reset();
+
+        if (m_Stream != nullptr) {
+            SDL_DestroyAudioStream(m_Stream);
         }
 
         if (m_Context != nullptr) {
@@ -75,7 +88,7 @@ namespace schmix {
         m_Status = status;
     }
 
-    Application::Application() {
+    Application::Application(const std::vector<std::string>& arguments) {
         m_Running = false;
         m_Status = 0;
 
@@ -84,11 +97,24 @@ namespace schmix {
         m_SwapchainCreated = false;
 
         m_Stream = nullptr;
-        m_Mixer = nullptr;
 
         m_Context = nullptr;
 
-        if (!CreateWindow() || !InitAudio() || !InitImGui()) {
+        m_Runtime = nullptr;
+
+        m_Executable = std::filesystem::absolute(arguments[0]).lexically_normal();
+        auto executableDirectory = m_Executable.parent_path();
+
+        std::filesystem::path resourceDir;
+        if (executableDirectory.filename().string() == "bin") {
+            resourceDir = executableDirectory / "../share/schmix";
+        } else {
+            resourceDir = std::filesystem::current_path() / "assets";
+        }
+
+        m_ResourceDirectory = resourceDir.lexically_normal();
+
+        if (!CreateWindow() || !InitAudio() || !InitImGui() || !InitRuntime()) {
             Quit(1);
         }
     }
@@ -151,7 +177,7 @@ namespace schmix {
         spec.channels = 2;
         spec.freq = 40960;
 
-        m_Mixer = Ref<Mixer>::Create(spec.freq / 2, spec.freq, spec.channels);
+        m_Mixer = Ref<Mixer>::Create(spec.freq / 4, spec.freq, spec.channels);
 
         m_Stream = SDL_OpenAudioDeviceStream(id, &spec, nullptr, nullptr);
         if (!m_Stream) {
@@ -205,6 +231,19 @@ namespace schmix {
 
         ImGui_ImplSDL3_InitForSDLGPU(m_Window);
         ImGui_ImplSDLGPU3_Init(&initInfo);
+
+        return true;
+    }
+
+    bool Application::InitRuntime() {
+        m_Runtime = new ScriptRuntime(m_ResourceDirectory / "runtime");
+        if (!m_Runtime->IsInitialized()) {
+            return false;
+        }
+
+        std::vector<ScriptBinding> bindings;
+        Bindings::Get(bindings);
+        m_Runtime->RegisterCoreBindings(bindings);
 
         return true;
     }
@@ -274,34 +313,20 @@ namespace schmix {
         SDL_SubmitGPUCommandBuffer(cmdBuffer);
     }
 
-    static void AddSineSignal(double frequency, const Ref<Mixer>& mixer, std::uint32_t channel) {
-        static std::size_t sample = 0;
-
-        Mixer::Signal signal(mixer->GetAudioChannels(), mixer->GetChunkSize());
-
-        std::size_t sampleRate = mixer->GetSampleRate();
-        for (std::size_t i = 0; i < signal.GetLength(); i++) {
-            std::size_t currentSample = sample + i;
-
-            for (std::size_t j = 0; j < signal.GetChannels(); j++) {
-                double phaseCoefficient = 2 * std::numbers::pi * frequency;
-                double sample = std::sin(phaseCoefficient * currentSample / sampleRate);
-                signal[j][i] = (Mixer::Signal::Sample)sample;
-            }
-        }
-
-        sample += signal.GetLength();
-        mixer->AddSignalToChannel(channel, signal);
-    }
-
     void Application::ProcessAudio() {
         std::size_t chunkSize = m_Mixer->GetChunkSize();
 
         int queued = SDL_GetAudioStreamQueued(m_Stream);
-        if (queued < chunkSize / 2) {
+        if (queued < chunkSize) {
             m_Mixer->Reset();
 
-            AddSineSignal(440, m_Mixer, 0);
+            {
+                auto core = m_Runtime->GetCore();
+                auto& test = core->GetType("Schmix.Test");
+
+                test.InvokeStaticMethod("AddSineSignal_Native", (double)440, m_Mixer.Raw(),
+                                        (std::uint32_t)0);
+            }
 
             Mixer::Signal output = m_Mixer->EvaluateChannel(0);
             if (output) {

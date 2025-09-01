@@ -7,7 +7,7 @@ namespace schmix {
     ScriptRuntime::ScriptRuntime(const std::filesystem::path& runtimeDir) {
         m_Initialized = false;
 
-        m_RuntimeDirectory = runtimeDir;
+        m_RuntimeDirectory = runtimeDir.lexically_normal();
         if (!std::filesystem::is_directory(m_RuntimeDirectory)) {
             // todo: error message
             return;
