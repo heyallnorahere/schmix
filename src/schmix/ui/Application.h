@@ -1,5 +1,6 @@
 #pragma once
 
+#include "schmix/audio/AudioOutput.h"
 #include "schmix/audio/Mixer.h"
 
 #include "schmix/ui/Window.h"
@@ -49,7 +50,7 @@ namespace schmix {
         Ref<Window> m_Window;
 
         Ref<Mixer> m_Mixer;
-        SDL_AudioStream* m_Stream;
+        Ref<AudioOutput> m_Output;
 
         ImGuiContext* m_Context;
 

@@ -38,16 +38,13 @@ namespace schmix {
 
     Application::~Application() {
         if (m_Window) {
-            SDL_WaitForGPUIdle(m_Window->GetDevice());
+            m_Window->WaitForGPU();
         }
 
         delete m_Runtime;
 
         m_Mixer.Reset();
-
-        if (m_Stream != nullptr) {
-            SDL_DestroyAudioStream(m_Stream);
-        }
+        m_Output.Reset();
 
         if (m_Context != nullptr) {
             SetImGuiContext();
@@ -59,7 +56,6 @@ namespace schmix {
         }
 
         m_Window.Reset();
-
         SDL_Quit();
 
         if (m_OwnsLogger) {
@@ -83,8 +79,6 @@ namespace schmix {
     Application::Application(const std::vector<std::string>& arguments) {
         m_Running = false;
         m_Status = 0;
-
-        m_Stream = nullptr;
 
         m_Context = nullptr;
 
@@ -144,26 +138,19 @@ namespace schmix {
     }
 
     bool Application::InitAudio() {
-        static constexpr SDL_AudioDeviceID id = SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
+        static constexpr std::size_t sampleRate = 40960;
+        static constexpr std::size_t channels = 2;
 
-        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        m_Mixer = Ref<Mixer>::Create(sampleRate / 4, sampleRate, channels);
+
+        std::uint32_t deviceID = AudioOutput::GetDefaultDeviceID();
+        m_Output = Ref<AudioOutput>::Create(deviceID, sampleRate, channels);
+
+        if (!m_Output->IsInitialized()) {
+            SCHMIX_ERROR("Failed to open audio output!");
             return false;
         }
 
-        SDL_AudioSpec spec;
-        spec.format = SDL_AUDIO_F32;
-        spec.channels = 2;
-        spec.freq = 40960;
-
-        m_Mixer = Ref<Mixer>::Create(spec.freq / 4, spec.freq, spec.channels);
-
-        m_Stream = SDL_OpenAudioDeviceStream(id, &spec, nullptr, nullptr);
-        if (!m_Stream) {
-            SCHMIX_ERROR("Failed to open audio stream!");
-            return false;
-        }
-
-        SDL_ResumeAudioStreamDevice(m_Stream);
         return true;
     }
 
@@ -300,7 +287,7 @@ namespace schmix {
     void Application::ProcessAudio() {
         std::size_t chunkSize = m_Mixer->GetChunkSize();
 
-        int queued = SDL_GetAudioStreamQueued(m_Stream);
+        std::size_t queued = m_Output->GetQueuedSamples();
         if (queued < chunkSize) {
             m_Mixer->Reset();
 
@@ -314,19 +301,7 @@ namespace schmix {
 
             Mixer::Signal output = m_Mixer->EvaluateChannel(0);
             if (output) {
-                std::size_t channels = output.GetChannels();
-                MonoSignal<float> streamData(chunkSize * channels);
-
-                std::size_t totalSamples = streamData.GetLength();
-                for (std::size_t i = 0; i < totalSamples; i++) {
-                    std::size_t channelIndex = i % channels;
-                    std::size_t sampleIndex = i / channels;
-
-                    streamData[i] = (float)output[channelIndex][sampleIndex];
-                }
-
-                SDL_PutAudioStreamData(m_Stream, streamData.GetData(),
-                                       totalSamples * sizeof(float));
+                m_Output->PutAudio(output);
             }
         }
     }

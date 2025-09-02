@@ -1,7 +1,7 @@
 #pragma once
 #include "schmix/core/Ref.h"
 
-#include "schmix/ui/SDL.h"
+#include "schmix/core/SDL.h"
 
 namespace schmix {
     class Window : public RefCounted {
@@ -20,9 +20,14 @@ namespace schmix {
         static void ProcessEvents();
 
         Window(const std::string& title, std::uint32_t width, std::uint32_t height);
-        ~Window();
+        virtual ~Window() override;
 
-        SDL_GPUTexture* AcquireImage(SDL_GPUCommandBuffer* cmdBuffer);
+        Window(const Window&) = delete;
+        Window& operator=(const Window&) = delete;
+
+        void WaitForGPU() const;
+
+        SDL_GPUTexture* AcquireImage(SDL_GPUCommandBuffer* cmdBuffer) const;
 
         SDL_Window* GetWindow() const { return m_Window; }
         SDL_GPUDevice* GetDevice() const { return m_Device; }

@@ -142,7 +142,9 @@ namespace schmix {
         }
     }
 
-    SDL_GPUTexture* Window::AcquireImage(SDL_GPUCommandBuffer* cmdBuffer) {
+    void Window::WaitForGPU() const { SDL_WaitForGPUIdle(m_Device); }
+
+    SDL_GPUTexture* Window::AcquireImage(SDL_GPUCommandBuffer* cmdBuffer) const {
         SDL_GPUTexture* swapchainTexture;
         SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer, m_Window, &swapchainTexture, nullptr,
                                               nullptr);
