@@ -8,7 +8,20 @@ using System;
 
 public sealed class WindowAudioOutput : RefCounted, IAudioOutput
 {
-    public unsafe WindowAudioOutput(uint deviceID, int sampleRate, int channels) : base(ctor_Impl(deviceID, sampleRate, channels))
+    public static unsafe uint DefaultDeviceID => GetDefaultDeviceID_Impl();
+
+    internal static unsafe void* CreateOutput(uint deviceID, int sampleRate, int channels)
+    {
+        void* address = ctor_Impl(deviceID, sampleRate, channels);
+        if (address is null)
+        {
+            throw new SystemException($"Failed to initialize audio output with ID: {deviceID}");
+        }
+
+        return address;
+    }
+
+    public unsafe WindowAudioOutput(uint deviceID, int sampleRate, int channels) : base(CreateOutput(deviceID, sampleRate, channels))
     {
         ResetSignal();
     }
@@ -55,6 +68,8 @@ public sealed class WindowAudioOutput : RefCounted, IAudioOutput
         return success;
     }
 
+    public unsafe int QueuedSamples => GetQueuedSamples_Impl(mAddress);
+
     public unsafe int SampleRate => GetSampleRate_Impl(mAddress);
     public unsafe int Channels => GetChannels_Impl(mAddress);
 
@@ -62,6 +77,8 @@ public sealed class WindowAudioOutput : RefCounted, IAudioOutput
 
     internal static unsafe delegate*<uint> GetDefaultDeviceID_Impl = null;
     internal static unsafe delegate*<uint, int, int, void*> ctor_Impl = null;
+
+    internal static unsafe delegate*<void*, int> GetQueuedSamples_Impl = null;
 
     internal static unsafe delegate*<void*, int> GetSampleRate_Impl = null;
     internal static unsafe delegate*<void*, int> GetChannels_Impl = null;

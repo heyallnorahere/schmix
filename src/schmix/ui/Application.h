@@ -1,10 +1,9 @@
 #pragma once
 
-#include "schmix/audio/WindowAudioOutput.h"
-#include "schmix/audio/Mixer.h"
-
 #include "schmix/ui/ImGuiInstance.h"
 #include "schmix/ui/Window.h"
+
+#include "schmix/script/ScriptRuntime.h"
 
 typedef struct SDL_AudioStream SDL_AudioStream;
 
@@ -48,11 +47,9 @@ namespace schmix {
 
         Ref<Window> m_Window;
 
-        Ref<Mixer> m_Mixer;
-        Ref<WindowAudioOutput> m_Output;
-
         Ref<ImGuiInstance> m_ImGui;
 
-        ScriptRuntime* m_Runtime;
+        Ref<ScriptRuntime> m_Runtime;
+        std::unique_ptr<Coral::ManagedObject> m_Instance;
     };
 } // namespace schmix

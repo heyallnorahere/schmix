@@ -1,4 +1,5 @@
 #pragma once
+#include "schmix/core/Ref.h"
 
 #include <Coral/HostInstance.hpp>
 
@@ -9,10 +10,10 @@ namespace schmix {
         void* CallbackPtr;
     };
 
-    class ScriptRuntime {
+    class ScriptRuntime : public RefCounted {
     public:
         ScriptRuntime(const std::filesystem::path& runtimeDir);
-        ~ScriptRuntime();
+        virtual ~ScriptRuntime() override;
 
         ScriptRuntime(const ScriptRuntime&) = delete;
         ScriptRuntime& operator=(const ScriptRuntime&) = delete;
@@ -21,7 +22,9 @@ namespace schmix {
 
         bool RegisterCoreBindings(const std::vector<ScriptBinding>& bindings);
 
+        Coral::HostInstance& GetHost() { return m_Host; }
         const Coral::HostInstance& GetHost() const { return m_Host; }
+
         bool IsInitialized() const { return m_Initialized; }
 
         const Coral::ManagedAssembly* GetCore() const { return m_CoreAssembly; }

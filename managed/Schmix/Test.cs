@@ -1,44 +1,108 @@
 namespace Schmix;
 
+using Coral.Managed.Interop;
+
 using Schmix.Audio;
+using Schmix.Extension;
 
 using System;
 
-public static class Test
+internal sealed class Test : IDisposable
 {
-    internal static unsafe void AddSineSignal_Native(double frequency, void* mixerAddress, uint channel)
+    private const int SampleRate = 40960;
+    private const int Channels = 2;
+    private const int ChunkSize = SampleRate / 4;
+
+    private static Plugin? FindPluginByNativeName(NativeString pluginName)
     {
-        using var mixer = new Mixer(mixerAddress);
-        AddSineSignal(frequency, mixer, channel);
-    }
-
-    private static int sSample = 0;
-
-    public static void AddSineSignal(double frequency, Mixer mixer, uint channel)
-    {
-        int chunkSize = mixer.ChunkSize;
-        var signal = CreateSine(sSample, frequency, chunkSize, mixer.SampleRate, mixer.AudioChannels);
-        sSample += chunkSize;
-
-        mixer.AddSignalToChannel(channel, signal);
-    }
-
-    public static StereoSignal<double> CreateSine(int sampleOffset, double frequency, int length, int sampleRate, int channels)
-    {
-        var signal = new StereoSignal<double>(channels, length);
-
-        for (int i = 0; i < signal.Length; i++)
+        var name = pluginName.ToString();
+        if (name is null)
         {
-            int currentSample = sampleOffset + i;
-            for (int j = 0; j < signal.Channels; j++)
-            {
-                double phaseCoefficient = 2 * Math.PI * frequency;
-                double sample = Math.Sin(phaseCoefficient * currentSample / sampleRate);
-
-                signal[j][i] = sample;
-            }
+            return null;
         }
 
-        return signal;
+        Console.WriteLine(name);
+
+        var plugin = Plugin.GetByName(name);
+        if (plugin is null)
+        {
+            return null;
+        }
+
+        return plugin;
     }
+
+    public Test(string pluginName)
+    {
+        var plugin = FindPluginByNativeName(pluginName);
+        if (plugin is null)
+        {
+            throw new ArgumentException("Invalid plugin name!");
+        }
+
+        mPlugin = plugin;
+        mModule = plugin.Instantiate();
+
+        uint deviceID = WindowAudioOutput.DefaultDeviceID;
+        mOutput = new WindowAudioOutput(deviceID, SampleRate, Channels);
+    }
+
+    public bool Update()
+    {
+        int queued = mOutput.QueuedSamples;
+        if (queued >= ChunkSize)
+        {
+            return true;
+        }
+
+        mOutput.ResetSignal();
+
+        var outputs = new IAudioOutput[]
+        {
+            mOutput
+        };
+
+        mModule.Process(Array.Empty<IAudioInput>(), outputs, SampleRate, ChunkSize, Channels);
+
+        return mOutput.Flush();
+    }
+
+    ~Test()
+    {
+        if (mDisposed)
+        {
+            return;
+        }
+
+        DoDispose(false);
+    }
+
+    private void DoDispose(bool disposing)
+    {
+        if (disposing)
+        {
+            mOutput.Dispose();
+            mModule.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (mDisposed)
+        {
+            return;
+        }
+
+        DoDispose(true);
+        GC.SuppressFinalize(this);
+
+        mDisposed = true;
+    }
+
+    private readonly Plugin mPlugin;
+    private readonly Module mModule;
+
+    private readonly WindowAudioOutput mOutput;
+
+    private bool mDisposed;
 }

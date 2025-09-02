@@ -1,8 +1,8 @@
 #include "schmixpch.h"
 #include "schmix/ui/Application.h"
 
-#include "schmix/script/ScriptRuntime.h"
 #include "schmix/script/Bindings.h"
+#include "schmix/script/Plugin.h"
 
 #include <imgui.h>
 
@@ -32,10 +32,15 @@ namespace schmix {
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
-        delete m_Runtime;
+        if (m_Instance) {
+            m_Instance->InvokeMethod("Dispose");
+            m_Instance->Destroy();
 
-        m_Mixer.Reset();
-        m_Output.Reset();
+            m_Instance.reset();
+        }
+
+        Plugin::Cleanup();
+        m_Runtime.Reset();
 
         m_ImGui.Reset();
         m_Window.Reset();
@@ -82,7 +87,7 @@ namespace schmix {
 
         SCHMIX_INFO("Initializing...");
 
-        if (!CreateWindow() || !InitAudio() || !InitImGui() || !InitRuntime()) {
+        if (!CreateWindow() || !InitImGui() || !InitRuntime() || !InitAudio()) {
             SCHMIX_ERROR("Initialization failed! Exiting 1...");
             Quit(1);
         }
@@ -109,16 +114,19 @@ namespace schmix {
     }
 
     bool Application::InitAudio() {
-        static constexpr std::size_t sampleRate = 40960;
-        static constexpr std::size_t channels = 2;
+        auto& testType = m_Runtime->GetCore()->GetType("Schmix.Test");
+        if (!testType) {
+            SCHMIX_ERROR("Failed to find test type!");
+            return false;
+        }
 
-        m_Mixer = Ref<Mixer>::Create(sampleRate / 4, sampleRate, channels);
+        std::string pluginName = "Sine generator";
+        m_Instance = std::make_unique<Coral::ManagedObject>(testType.CreateInstance(pluginName));
 
-        std::uint32_t deviceID = WindowAudioOutput::GetDefaultDeviceID();
-        m_Output = Ref<WindowAudioOutput>::Create(deviceID, sampleRate, channels);
+        if (!m_Instance->IsValid()) {
+            m_Instance.reset();
 
-        if (!m_Output->IsInitialized()) {
-            SCHMIX_ERROR("Failed to open audio output!");
+            SCHMIX_ERROR("Failed to create test interface!");
             return false;
         }
 
@@ -146,6 +154,16 @@ namespace schmix {
         std::vector<ScriptBinding> bindings;
         Bindings::Get(bindings);
         m_Runtime->RegisterCoreBindings(bindings);
+
+        if (!Plugin::Init(m_Runtime)) {
+            SCHMIX_ERROR("Failed to initialize plugin interface!");
+            return false;
+        }
+
+        if (!Plugin::LoadPlugins(m_ResourceDirectory / "plugins")) {
+            SCHMIX_ERROR("Failed to load plugins!");
+            return false;
+        }
 
         return true;
     }
@@ -178,25 +196,5 @@ namespace schmix {
         m_ImGui->RenderAndPresent();
     }
 
-    void Application::ProcessAudio() {
-        std::size_t chunkSize = m_Mixer->GetChunkSize();
-
-        std::size_t queued = m_Output->GetQueuedSamples();
-        if (queued < chunkSize) {
-            m_Mixer->Reset();
-
-            {
-                auto core = m_Runtime->GetCore();
-                auto& test = core->GetType("Schmix.Test");
-
-                test.InvokeStaticMethod("AddSineSignal_Native", (double)440, m_Mixer.Raw(),
-                                        (std::uint32_t)0);
-            }
-
-            Mixer::Signal output = m_Mixer->EvaluateChannel(0);
-            if (output) {
-                m_Output->PutAudio(output);
-            }
-        }
-    }
+    void Application::ProcessAudio() { m_Instance->InvokeMethod("Update"); }
 } // namespace schmix

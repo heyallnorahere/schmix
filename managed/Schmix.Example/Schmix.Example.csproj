@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Schmix\Schmix.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <Target Name="CopyPlugin" AfterTargets="Build">
+    <ItemGroup>
+      <CopySourceFiles Include="$(OutDir)\Schmix.Example.*"/>
+    </ItemGroup>
+
+    <Copy SourceFiles="@(CopySourceFiles)" DestinationFolder="$(SolutionDir)assets\plugins"/>
+  </Target>
+
+</Project>

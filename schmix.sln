@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "managed", "managed", "{982A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schmix", "managed\Schmix\Schmix.csproj", "{EF2C5BA0-B86D-4D42-A977-B6D3D13558A5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schmix.Example", "managed\Schmix.Example\Schmix.Example.csproj", "{608C4D95-7057-4946-AF10-CB2035154EA8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,8 +28,13 @@ Global
 		{EF2C5BA0-B86D-4D42-A977-B6D3D13558A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EF2C5BA0-B86D-4D42-A977-B6D3D13558A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EF2C5BA0-B86D-4D42-A977-B6D3D13558A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{608C4D95-7057-4946-AF10-CB2035154EA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{608C4D95-7057-4946-AF10-CB2035154EA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{608C4D95-7057-4946-AF10-CB2035154EA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{608C4D95-7057-4946-AF10-CB2035154EA8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{EF2C5BA0-B86D-4D42-A977-B6D3D13558A5} = {982A5510-6981-462A-8206-4BF8B92F8195}
+		{608C4D95-7057-4946-AF10-CB2035154EA8} = {982A5510-6981-462A-8206-4BF8B92F8195}
 	EndGlobalSection
 EndGlobal

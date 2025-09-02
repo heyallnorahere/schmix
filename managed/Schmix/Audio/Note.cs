@@ -7,6 +7,9 @@ public struct Note
 {
     public double Frequency;
 
+    public double Gain;
+    public bool GainControlled;
+
     public bool Active;
     public double TimeActive, TimeInactive;
 }

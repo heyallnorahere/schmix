@@ -9,7 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-public abstract class Plugin
+public abstract class Plugin : IDisposable
 {
     private struct PluginInfo
     {
@@ -24,6 +24,26 @@ public abstract class Plugin
     static Plugin()
     {
         sPlugins = new Dictionary<string, PluginInfo>();
+    }
+
+    internal static NativeString LoadPluginsFromAssembly_Native(int assemblyID)
+    {
+        // see managed/Coral.Managed.csproj
+        Assembly? assembly;
+        if (!AssemblyLoader.TryGetAssembly(assemblyID, out assembly) || assembly is null)
+        {
+            return "Failed to retrieve assembly from Coral!";
+        }
+
+        try
+        {
+            LoadPluginsFromAssembly(assembly);
+            return NativeString.Null();
+        }
+        catch (Exception ex)
+        {
+            return ex.ToString();
+        }
     }
 
     internal static void LoadPluginsFromAssembly(Assembly assembly)
@@ -84,30 +104,6 @@ public abstract class Plugin
         return null;
     }
 
-    internal static Bool32 LoadPluginsFromAssembly_Native(int assemblyID)
-    {
-        // see managed/Coral.Managed.csproj
-        Assembly? assembly;
-        if (!AssemblyLoader.TryGetAssembly(assemblyID, out assembly) || assembly is null)
-        {
-            return false;
-        }
-
-        LoadPluginsFromAssembly(assembly);
-        return true;
-    }
-
-    internal static Plugin? GetByName_Native(NativeString name)
-    {
-        var value = name.ToString();
-        if (value is null)
-        {
-            return null;
-        }
-
-        return GetByName(value);
-    }
-
     internal static void UnloadPlugins()
     {
         foreach (var name in sPlugins.Keys)
@@ -115,16 +111,47 @@ public abstract class Plugin
             var info = sPlugins[name];
             var plugin = info.Instance;
 
-            plugin.Unload();
+            plugin.Dispose();
         }
 
         sPlugins.Clear();
     }
 
+    protected Plugin()
+    {
+        mDisposed = false;
+    }
+
+    ~Plugin()
+    {
+        if (mDisposed)
+        {
+            return;
+        }
+
+        Unload(false);
+        mDisposed = true;
+    }
+
     public abstract Module Instantiate();
 
-    protected virtual void Unload()
+    protected virtual void Unload(bool disposing)
     {
         // unload plugin-specific data here
     }
+
+    public void Dispose()
+    {
+        if (mDisposed)
+        {
+            return;
+        }
+
+        Unload(true);
+        GC.SuppressFinalize(this);
+
+        mDisposed = true;
+    }
+
+    private bool mDisposed;
 }

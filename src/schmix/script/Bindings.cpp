@@ -45,7 +45,17 @@ namespace schmix {
     static WindowAudioOutput* WindowAudioOutput_ctor_Impl(std::uint32_t deviceID,
                                                           std::int32_t sampleRate,
                                                           std::int32_t channels) {
-        return new WindowAudioOutput(deviceID, sampleRate, channels);
+        auto output = new WindowAudioOutput(deviceID, sampleRate, channels);
+        if (!output->IsInitialized()) {
+            delete output;
+            output = nullptr;
+        }
+
+        return output;
+    }
+
+    static std::int32_t WindowAudioOutput_GetQueuedSamples_Impl(WindowAudioOutput* output) {
+        return output->GetQueuedSamples();
     }
 
     static std::int32_t WindowAudioOutput_GetSampleRate_Impl(WindowAudioOutput* output) {
@@ -83,6 +93,8 @@ namespace schmix {
                   (void*)WindowAudioOutput_GetDefaultDeviceID_Impl },
                 { "Schmix.Audio.WindowAudioOutput", "ctor_Impl",
                   (void*)WindowAudioOutput_ctor_Impl },
+                { "Schmix.Audio.WindowAudioOutput", "GetQueuedSamples_Impl",
+                  (void*)WindowAudioOutput_GetQueuedSamples_Impl },
                 { "Schmix.Audio.WindowAudioOutput", "GetSampleRate_Impl",
                   (void*)WindowAudioOutput_GetSampleRate_Impl },
                 { "Schmix.Audio.WindowAudioOutput", "GetChannels_Impl",
