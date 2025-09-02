@@ -2,8 +2,8 @@
 
 #include "schmix/audio/Mixer.h"
 
-typedef struct SDL_Window SDL_Window;
-typedef struct SDL_GPUDevice SDL_GPUDevice;
+#include "schmix/ui/Window.h"
+
 typedef struct SDL_AudioStream SDL_AudioStream;
 
 struct ImGuiContext;
@@ -19,7 +19,7 @@ namespace schmix {
 
         ~Application();
 
-        SDL_Window* GetWindow() const { return m_Window; }
+        const Ref<Window>& GetWindow() const { return m_Window; }
         ImGuiContext* GetImGuiContext() const { return m_Context; }
 
         void SetImGuiContext() const;
@@ -37,7 +37,6 @@ namespace schmix {
         void Loop();
         void Render();
         void ProcessAudio();
-        void ProcessEvents();
 
         std::filesystem::path m_Executable;
         std::filesystem::path m_ResourceDirectory;
@@ -47,9 +46,7 @@ namespace schmix {
 
         bool m_OwnsLogger;
 
-        SDL_Window* m_Window;
-        SDL_GPUDevice* m_Device;
-        bool m_SwapchainCreated;
+        Ref<Window> m_Window;
 
         Ref<Mixer> m_Mixer;
         SDL_AudioStream* m_Stream;

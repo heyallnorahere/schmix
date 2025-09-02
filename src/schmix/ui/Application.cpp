@@ -37,8 +37,8 @@ namespace schmix {
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
-        if (m_Device != nullptr) {
-            SDL_WaitForGPUIdle(m_Device);
+        if (m_Window) {
+            SDL_WaitForGPUIdle(m_Window->GetDevice());
         }
 
         delete m_Runtime;
@@ -58,17 +58,7 @@ namespace schmix {
             ImGui::DestroyContext(m_Context);
         }
 
-        if (m_SwapchainCreated) {
-            SDL_ReleaseWindowFromGPUDevice(m_Device, m_Window);
-        }
-
-        if (m_Device != nullptr) {
-            SDL_DestroyGPUDevice(m_Device);
-        }
-
-        if (m_Window != nullptr) {
-            SDL_DestroyWindow(m_Window);
-        }
+        m_Window.Reset();
 
         SDL_Quit();
 
@@ -93,10 +83,6 @@ namespace schmix {
     Application::Application(const std::vector<std::string>& arguments) {
         m_Running = false;
         m_Status = 0;
-
-        m_Window = nullptr;
-        m_Device = nullptr;
-        m_SwapchainCreated = false;
 
         m_Stream = nullptr;
 
@@ -132,21 +118,10 @@ namespace schmix {
         }
     }
 
-    static constexpr SDL_GPUSwapchainComposition s_SwapchainComposition =
-        SDL_GPU_SWAPCHAINCOMPOSITION_SDR;
-
-    static constexpr SDL_GPUPresentMode s_PresentMode = SDL_GPU_PRESENTMODE_VSYNC;
-
     bool Application::CreateWindow() {
         static const std::string title = "Schmix: shitass DAW";
         static constexpr std::uint32_t width = 1600;
         static constexpr std::uint32_t height = 900;
-
-        static constexpr SDL_WindowFlags flags =
-            SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-
-        static constexpr SDL_GPUShaderFormat shaderFormat =
-            SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB;
 
         if (!SDL_SetMemoryFunctions(Memory::Allocate, Memory::AllocateZeroedArray,
                                     Memory::Reallocate, Memory::Free)) {
@@ -154,37 +129,16 @@ namespace schmix {
             return false;
         }
 
-        if (!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
-            SCHMIX_ERROR("Failed to initialize SDL video and gamepad subsystems!");
+        m_Window = Ref<Window>::Create(title, width, height);
+        if (!m_Window->IsInitialized()) {
+            SCHMIX_ERROR("Failed to create main window!");
             return false;
         }
 
-        m_Window = SDL_CreateWindow(title.c_str(), (int)width, (int)height, flags);
-        if (m_Window == nullptr) {
-            SCHMIX_ERROR("Failed to create SDL window: {}", SDL_GetError());
-            return false;
-        }
-
-        SDL_ShowWindow(m_Window);
-
-        m_Device = SDL_CreateGPUDevice(shaderFormat, true, nullptr);
-        if (m_Device == nullptr) {
-            SCHMIX_ERROR("Failed to acquire SDL graphics device: {}", SDL_GetError());
-            return false;
-        }
-
-        if (!SDL_ClaimWindowForGPUDevice(m_Device, m_Window)) {
-            SCHMIX_ERROR("Failed to create window swapchain: {}", SDL_GetError());
-            return false;
-        }
-
-        m_SwapchainCreated = true;
-
-        if (!SDL_SetGPUSwapchainParameters(m_Device, m_Window, s_SwapchainComposition,
-                                           s_PresentMode)) {
-            SCHMIX_ERROR("Failed to configure window swapchain: {}", SDL_GetError());
-            return false;
-        }
+        Window::SetEventCallback([this](const SDL_Event& event) {
+            SetImGuiContext();
+            ImGui_ImplSDL3_ProcessEvent(&event);
+        });
 
         return true;
     }
@@ -247,14 +201,17 @@ namespace schmix {
             style.Colors[ImGuiCol_WindowBg].w = 1.f;
         }
 
-        ImGui_ImplSDLGPU3_InitInfo initInfo{};
-        initInfo.Device = m_Device;
-        initInfo.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(m_Device, m_Window);
-        initInfo.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
-        initInfo.SwapchainComposition = s_SwapchainComposition;
-        initInfo.PresentMode = s_PresentMode;
+        auto window = m_Window->GetWindow();
+        auto device = m_Window->GetDevice();
 
-        ImGui_ImplSDL3_InitForSDLGPU(m_Window);
+        ImGui_ImplSDLGPU3_InitInfo initInfo{};
+        initInfo.Device = device;
+        initInfo.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(device, window);
+        initInfo.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+        initInfo.SwapchainComposition = Window::SwapchainComposition;
+        initInfo.PresentMode = Window::PresentMode;
+
+        ImGui_ImplSDL3_InitForSDLGPU(window);
         ImGui_ImplSDLGPU3_Init(&initInfo);
 
         return true;
@@ -283,7 +240,11 @@ namespace schmix {
         while (m_Running) {
             Render();
             ProcessAudio();
-            ProcessEvents();
+
+            Window::ProcessEvents();
+            if (m_Window->IsCloseRequested()) {
+                m_Running = false;
+            }
         }
     }
 
@@ -302,11 +263,8 @@ namespace schmix {
         ImGui::Render();
         ImDrawData* drawData = ImGui::GetDrawData();
 
-        SDL_GPUCommandBuffer* cmdBuffer = SDL_AcquireGPUCommandBuffer(m_Device);
-
-        SDL_GPUTexture* swapchainTexture;
-        SDL_WaitAndAcquireGPUSwapchainTexture(cmdBuffer, m_Window, &swapchainTexture, nullptr,
-                                              nullptr);
+        SDL_GPUCommandBuffer* cmdBuffer = SDL_AcquireGPUCommandBuffer(m_Window->GetDevice());
+        SDL_GPUTexture* swapchainTexture = m_Window->AcquireImage(cmdBuffer);
 
         bool textureAcquired = swapchainTexture != nullptr;
         bool windowMinimized = drawData->DisplaySize.x <= 0.f || drawData->DisplaySize.y <= 0.f;
@@ -369,28 +327,6 @@ namespace schmix {
 
                 SDL_PutAudioStreamData(m_Stream, streamData.GetData(),
                                        totalSamples * sizeof(float));
-            }
-        }
-    }
-
-    void Application::ProcessEvents() {
-        SDL_WindowID appWindowID = SDL_GetWindowID(m_Window);
-
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            ImGui_ImplSDL3_ProcessEvent(&event);
-
-            std::uint32_t eventClass = (((std::uint32_t)event.type) >> 8) & 0xFF;
-            if (eventClass == 0x02 && event.window.windowID != appWindowID) {
-                // window event not pertaining to ours. skip
-                continue;
-            }
-
-            switch (event.type) {
-            case SDL_EVENT_QUIT:
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                Quit();
-                break;
             }
         }
     }

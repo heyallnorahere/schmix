@@ -24,6 +24,7 @@
 #include <string>
 #include <atomic>
 #include <optional>
+#include <functional>
 
 // math
 #include <numbers>
