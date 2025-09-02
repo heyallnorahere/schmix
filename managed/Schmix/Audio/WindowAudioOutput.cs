@@ -12,6 +12,8 @@ public sealed class WindowAudioOutput : RefCounted, IAudioOutput
 
     internal static unsafe void* CreateOutput(uint deviceID, int sampleRate, int channels)
     {
+        Log.Debug("Creating managed audio output...");
+
         void* address = ctor_Impl(deviceID, sampleRate, channels);
         if (address is null)
         {

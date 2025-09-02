@@ -17,6 +17,16 @@ namespace schmix {
         Ref<RefCounted>::DecreaseRefCount(object);
     }
 
+    static void Log_Print_Impl(spdlog::level::level_enum level, Coral::String msg,
+                               Coral::String memberName, Coral::String file, std::int32_t line) {
+        spdlog::source_loc loc;
+        loc.line = (int)line;
+        loc.filename = file.Data();
+        loc.funcname = memberName.Data();
+
+        g_Logger->log(loc, level, msg.Data());
+    }
+
     static void Mixer_AddSignalToChannel_Impl(Mixer* mixer, std::uint32_t channel,
                                               std::int32_t audioChannels, std::int32_t length,
                                               Coral::Array<double> interleaved) {
@@ -81,6 +91,8 @@ namespace schmix {
             {
                 { "Schmix.Core.RefCounted", "AddRef_Impl", (void*)RefCounted_AddRef_Impl },
                 { "Schmix.Core.RefCounted", "RemoveRef_Impl", (void*)RefCounted_RemoveRef_Impl },
+
+                { "Schmix.Core.Log", "Print_Impl", (void*)Log_Print_Impl },
 
                 { "Schmix.Audio.Mixer", "AddSignalToChannel_Impl",
                   (void*)Mixer_AddSignalToChannel_Impl },
