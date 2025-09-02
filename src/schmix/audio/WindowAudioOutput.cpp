@@ -1,5 +1,5 @@
 #include "schmixpch.h"
-#include "schmix/audio/AudioOutput.h"
+#include "schmix/audio/WindowAudioOutput.h"
 
 #include "schmix/core/SDL.h"
 
@@ -7,9 +7,11 @@ namespace schmix {
     static std::uint32_t s_SubsystemReferences = 0;
     static constexpr SDL_InitFlags s_AudioSubsystem = SDL_INIT_AUDIO;
 
-    std::size_t AudioOutput::GetDefaultDeviceID() { return SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK; }
+    std::size_t WindowAudioOutput::GetDefaultDeviceID() {
+        return SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
+    }
 
-    bool AudioOutput::AddSubsystemReference() {
+    bool WindowAudioOutput::AddSubsystemReference() {
         if (s_SubsystemReferences == 0) {
             SCHMIX_DEBUG("Initializing audio SDL subsystems...");
 
@@ -23,7 +25,7 @@ namespace schmix {
         return true;
     }
 
-    void AudioOutput::RemoveSubsystemReference() {
+    void WindowAudioOutput::RemoveSubsystemReference() {
         if (s_SubsystemReferences == 0) {
             SCHMIX_WARN("Audio SDL subsystems have no references; skipping remove");
             return;
@@ -35,7 +37,8 @@ namespace schmix {
         }
     }
 
-    AudioOutput::AudioOutput(std::size_t deviceID, std::size_t sampleRate, std::size_t channels) {
+    WindowAudioOutput::WindowAudioOutput(std::size_t deviceID, std::size_t sampleRate,
+                                         std::size_t channels) {
         m_DeviceID = deviceID;
 
         m_SampleRate = sampleRate;
@@ -73,7 +76,7 @@ namespace schmix {
         m_Initialized = true;
     }
 
-    AudioOutput::~AudioOutput() {
+    WindowAudioOutput::~WindowAudioOutput() {
         if (m_Stream != nullptr) {
             SDL_DestroyAudioStream(m_Stream);
         }
@@ -83,7 +86,7 @@ namespace schmix {
         }
     }
 
-    bool AudioOutput::PutInterleavedAudio(const MonoSignal<float>& interleaved) {
+    bool WindowAudioOutput::PutInterleavedAudio(const MonoSignal<float>& interleaved) {
         if (!m_Initialized) {
             SCHMIX_WARN("Audio output not initialized; skipping audio push");
             return false;
@@ -98,7 +101,7 @@ namespace schmix {
         return true;
     }
 
-    std::size_t AudioOutput::GetQueuedSamples() const {
+    std::size_t WindowAudioOutput::GetQueuedSamples() const {
         if (!m_Initialized) {
             SCHMIX_WARN("Attempted to query stream queue on uninitialized output; returning 0");
             return 0;

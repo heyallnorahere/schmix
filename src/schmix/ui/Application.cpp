@@ -114,8 +114,8 @@ namespace schmix {
 
         m_Mixer = Ref<Mixer>::Create(sampleRate / 4, sampleRate, channels);
 
-        std::uint32_t deviceID = AudioOutput::GetDefaultDeviceID();
-        m_Output = Ref<AudioOutput>::Create(deviceID, sampleRate, channels);
+        std::uint32_t deviceID = WindowAudioOutput::GetDefaultDeviceID();
+        m_Output = Ref<WindowAudioOutput>::Create(deviceID, sampleRate, channels);
 
         if (!m_Output->IsInitialized()) {
             SCHMIX_ERROR("Failed to open audio output!");

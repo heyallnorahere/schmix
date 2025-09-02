@@ -1,6 +1,8 @@
-namespace Schmix;
+namespace Schmix.Audio;
 
 using Coral.Managed.Interop;
+
+using Schmix.Core;
 
 public class Mixer : RefCounted
 {

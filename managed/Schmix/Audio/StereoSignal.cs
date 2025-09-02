@@ -1,4 +1,4 @@
-namespace Schmix;
+namespace Schmix.Audio;
 
 using System;
 using System.Numerics;
@@ -41,6 +41,12 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         }
     }
 
+    private StereoSignal()
+    {
+        mLength = 0;
+        mChannels = Array.Empty<MonoSignal<T>>();
+    }
+
     public int Channels => mChannels.Length;
     public int Length => mLength;
 
@@ -65,7 +71,21 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         return interleaved;
     }
 
-    public static StereoSignal<T> operator+(StereoSignal<T> lhs, StereoSignal<T> rhs)
+    public StereoSignal<T> Copy()
+    {
+        var result = new StereoSignal<T>();
+        result.mLength = mLength;
+
+        result.mChannels = new MonoSignal<T>[mChannels.Length];
+        for (int i = 0; i < mChannels.Length; i++)
+        {
+            result.mChannels[i] = new MonoSignal<T>(mChannels[i].Data);
+        }
+
+        return result;
+    }
+
+    public static StereoSignal<T> operator +(StereoSignal<T> lhs, StereoSignal<T> rhs)
     {
         if (lhs.mChannels.Length != rhs.mChannels.Length)
         {
@@ -83,7 +103,7 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         return result;
     }
 
-    public static StereoSignal<T> operator-(StereoSignal<T> signal)
+    public static StereoSignal<T> operator -(StereoSignal<T> signal)
     {
         int channels = signal.mChannels.Length;
         var result = new StereoSignal<T>(channels, signal.mLength);
@@ -96,7 +116,7 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         return result;
     }
 
-    public static StereoSignal<T> operator-(StereoSignal<T> lhs, StereoSignal<T> rhs)
+    public static StereoSignal<T> operator -(StereoSignal<T> lhs, StereoSignal<T> rhs)
     {
         if (lhs.mChannels.Length != rhs.mChannels.Length)
         {
@@ -114,7 +134,7 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         return result;
     }
 
-    public static StereoSignal<T> operator*(StereoSignal<T> signal, double scalar)
+    public static StereoSignal<T> operator *(StereoSignal<T> signal, double scalar)
     {
         int channels = signal.mChannels.Length;
         var result = new StereoSignal<T>(channels, signal.mLength);
@@ -127,7 +147,7 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         return result;
     }
 
-    public static StereoSignal<T> operator/(StereoSignal<T> signal, double scalar)
+    public static StereoSignal<T> operator /(StereoSignal<T> signal, double scalar)
     {
         int channels = signal.mChannels.Length;
         var result = new StereoSignal<T>(channels, signal.mLength);

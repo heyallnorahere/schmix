@@ -6,7 +6,7 @@
 typedef struct SDL_AudioStream SDL_AudioStream;
 
 namespace schmix {
-    class AudioOutput : public RefCounted {
+    class WindowAudioOutput : public RefCounted {
     public:
         template <typename _Ty>
         static constexpr float ConvertSample(_Ty sample) {
@@ -23,11 +23,11 @@ namespace schmix {
         static bool AddSubsystemReference();
         static void RemoveSubsystemReference();
 
-        AudioOutput(std::size_t deviceID, std::size_t sampleRate, std::size_t channels);
-        virtual ~AudioOutput() override;
+        WindowAudioOutput(std::size_t deviceID, std::size_t sampleRate, std::size_t channels);
+        virtual ~WindowAudioOutput() override;
 
-        AudioOutput(const AudioOutput&) = delete;
-        AudioOutput& operator=(const AudioOutput&) = delete;
+        WindowAudioOutput(const WindowAudioOutput&) = delete;
+        WindowAudioOutput& operator=(const WindowAudioOutput&) = delete;
 
         template <typename _Ty>
         bool PutAudio(const StereoSignal<_Ty>& signal) {

@@ -1,5 +1,7 @@
 namespace Schmix;
 
+using Schmix.Audio;
+
 using System;
 
 public static class Test

@@ -8,10 +8,6 @@ namespace schmix {
         m_AudioChannels = audioChannels;
     }
 
-    Mixer::~Mixer() {
-        // todo: uhhh
-    }
-
     void Mixer::SetParameters(std::size_t chunkSize, std::size_t sampleRate,
                               std::size_t audioChannels) {
         Reset();
@@ -94,7 +90,7 @@ namespace schmix {
 
             for (const auto& inputIndex : channel.Inputs) {
                 EvaluateChannelToCache(inputIndex, cache, evaluatingChannels);
-                
+
                 if (cache.contains(inputIndex)) {
                     result += cache.at(inputIndex);
                 }

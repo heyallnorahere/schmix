@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <Compile Include="$(ProjectDir)..\vendor\Coral\Coral.Managed\Source\**\*.cs"/>
+
+    <!-- i dont like this. todo: submit pr to improve api -->
+    <InternalsVisibleTo Include="Schmix"/>
   </ItemGroup>
 
 </Project>

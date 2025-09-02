@@ -1,15 +1,18 @@
-namespace Schmix;
+namespace Schmix.Core;
 
 using System;
 
 public abstract unsafe class RefCounted : IDisposable
 {
-    internal RefCounted(void* address)
+    internal RefCounted(void* address, bool addRef = true)
     {
         mAddress = address;
         mCounted = false;
 
-        AddRef();
+        if (addRef)
+        {
+            AddRef();
+        }
     }
 
     ~RefCounted()

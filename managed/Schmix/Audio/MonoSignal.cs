@@ -1,4 +1,4 @@
-namespace Schmix;
+namespace Schmix.Audio;
 
 using System;
 using System.Numerics;

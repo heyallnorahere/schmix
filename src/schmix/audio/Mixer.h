@@ -14,7 +14,7 @@ namespace schmix {
         };
 
         Mixer(std::size_t chunkSize, std::size_t sampleRate, std::size_t audioChannels);
-        virtual ~Mixer() override;
+        virtual ~Mixer() = default;
 
         Mixer(const Mixer&) = delete;
         Mixer& operator=(const Mixer&) = delete;
