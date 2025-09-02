@@ -4,12 +4,7 @@
 #include "schmix/script/ScriptRuntime.h"
 #include "schmix/script/Bindings.h"
 
-#define SDL_MAIN_HANDLED
-#include <SDL3/SDL.h>
-
 #include <imgui.h>
-#include <backends/imgui_impl_sdl3.h>
-#include <backends/imgui_impl_sdlgpu3.h>
 
 namespace schmix {
     static Application* s_App;
@@ -37,38 +32,19 @@ namespace schmix {
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
-        if (m_Window) {
-            m_Window->WaitForGPU();
-        }
-
         delete m_Runtime;
 
         m_Mixer.Reset();
         m_Output.Reset();
 
-        if (m_Context != nullptr) {
-            SetImGuiContext();
-
-            ImGui_ImplSDLGPU3_Shutdown();
-            ImGui_ImplSDL3_Shutdown();
-
-            ImGui::DestroyContext(m_Context);
-        }
-
+        m_ImGui.Reset();
         m_Window.Reset();
+
         SDL_Quit();
 
         if (m_OwnsLogger) {
             ResetLogger();
         }
-    }
-
-    static void* ImGuiMemAlloc(std::size_t sz, void* user_data) { return Memory::Allocate(sz); }
-    static void ImGuiMemFree(void* ptr, void* user_data) { return Memory::Free(ptr); }
-
-    void Application::SetImGuiContext() const {
-        ImGui::SetAllocatorFunctions(ImGuiMemAlloc, ImGuiMemFree);
-        ImGui::SetCurrentContext(m_Context);
     }
 
     void Application::Quit(int status) {
@@ -79,8 +55,6 @@ namespace schmix {
     Application::Application(const std::vector<std::string>& arguments) {
         m_Running = false;
         m_Status = 0;
-
-        m_Context = nullptr;
 
         m_Runtime = nullptr;
 
@@ -100,7 +74,9 @@ namespace schmix {
         m_OwnsLogger = CreateLogger(logDir);
 
         // todo: dump build info
-        SCHMIX_INFO("Hi!");
+        SCHMIX_INFO("Schmix is still a work-in-progress. Report bugs at "
+                    "https://github.com/heyallnorahere/schmix/issues/new");
+
         SCHMIX_INFO("Executable path: {}", m_Executable.string().c_str());
         SCHMIX_INFO("Resource directory: {}", m_ResourceDirectory.string().c_str());
 
@@ -129,11 +105,6 @@ namespace schmix {
             return false;
         }
 
-        Window::SetEventCallback([this](const SDL_Event& event) {
-            SetImGuiContext();
-            ImGui_ImplSDL3_ProcessEvent(&event);
-        });
-
         return true;
     }
 
@@ -155,52 +126,13 @@ namespace schmix {
     }
 
     bool Application::InitImGui() {
-        SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
-        float displayScale = SDL_GetDisplayContentScale(primaryDisplay);
-
-        IMGUI_CHECKVERSION();
-        ImGui::SetAllocatorFunctions(ImGuiMemAlloc, ImGuiMemFree);
-
-        m_Context = ImGui::CreateContext();
-        ImGui::SetCurrentContext(m_Context);
-
-        ImGuiIO& io = ImGui::GetIO();
-        (void)io;
-
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-        io.ConfigDpiScaleFonts = true;
-        io.ConfigDpiScaleViewports = true;
-
-        ImGui::StyleColorsDark();
-
-        ImGuiStyle& style = ImGui::GetStyle();
-        (void)style;
-
-        style.ScaleAllSizes(displayScale);
-        style.FontScaleDpi *= displayScale;
-
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            style.WindowRounding = 0.f;
-            style.Colors[ImGuiCol_WindowBg].w = 1.f;
+        m_ImGui = Ref<ImGuiInstance>::Create(m_Window);
+        if (!m_ImGui->IsInitialized()) {
+            SCHMIX_ERROR("Failed to initialize Dear ImGui!");
+            return false;
         }
 
-        auto window = m_Window->GetWindow();
-        auto device = m_Window->GetDevice();
-
-        ImGui_ImplSDLGPU3_InitInfo initInfo{};
-        initInfo.Device = device;
-        initInfo.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(device, window);
-        initInfo.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
-        initInfo.SwapchainComposition = Window::SwapchainComposition;
-        initInfo.PresentMode = Window::PresentMode;
-
-        ImGui_ImplSDL3_InitForSDLGPU(window);
-        ImGui_ImplSDLGPU3_Init(&initInfo);
-
+        Window::SetEventCallback([this](const SDL_Event& event) { m_ImGui->ProcessEvent(event); });
         return true;
     }
 
@@ -236,52 +168,14 @@ namespace schmix {
     }
 
     void Application::Render() {
-        SetImGuiContext();
-
-        ImGui_ImplSDLGPU3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
+        m_ImGui->NewFrame();
 
         static bool showDemoWindow = true;
         if (showDemoWindow) {
             ImGui::ShowDemoWindow(&showDemoWindow);
         }
 
-        ImGui::Render();
-        ImDrawData* drawData = ImGui::GetDrawData();
-
-        SDL_GPUCommandBuffer* cmdBuffer = SDL_AcquireGPUCommandBuffer(m_Window->GetDevice());
-        SDL_GPUTexture* swapchainTexture = m_Window->AcquireImage(cmdBuffer);
-
-        bool textureAcquired = swapchainTexture != nullptr;
-        bool windowMinimized = drawData->DisplaySize.x <= 0.f || drawData->DisplaySize.y <= 0.f;
-
-        if (textureAcquired && !windowMinimized) {
-            ImGui_ImplSDLGPU3_PrepareDrawData(drawData, cmdBuffer);
-
-            SDL_GPUColorTargetInfo targetInfo{};
-            targetInfo.texture = swapchainTexture;
-            targetInfo.clear_color = { 0.3f, 0.3f, 0.3f, 1.f };
-            targetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-            targetInfo.store_op = SDL_GPU_STOREOP_STORE;
-            targetInfo.mip_level = 0;
-            targetInfo.layer_or_depth_plane = 0;
-            targetInfo.cycle = false;
-
-            SDL_GPURenderPass* renderPass =
-                SDL_BeginGPURenderPass(cmdBuffer, &targetInfo, 1, nullptr);
-
-            ImGui_ImplSDLGPU3_RenderDrawData(drawData, cmdBuffer, renderPass);
-            SDL_EndGPURenderPass(renderPass);
-        }
-
-        ImGuiIO& io = ImGui::GetIO();
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
-
-        SDL_SubmitGPUCommandBuffer(cmdBuffer);
+        m_ImGui->RenderAndPresent();
     }
 
     void Application::ProcessAudio() {

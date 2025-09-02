@@ -3,6 +3,7 @@
 #include "schmix/audio/AudioOutput.h"
 #include "schmix/audio/Mixer.h"
 
+#include "schmix/ui/ImGuiInstance.h"
 #include "schmix/ui/Window.h"
 
 typedef struct SDL_AudioStream SDL_AudioStream;
@@ -21,9 +22,7 @@ namespace schmix {
         ~Application();
 
         const Ref<Window>& GetWindow() const { return m_Window; }
-        ImGuiContext* GetImGuiContext() const { return m_Context; }
-
-        void SetImGuiContext() const;
+        const Ref<ImGuiInstance>& GetImGuiInstance() const { return m_ImGui; }
 
         void Quit(int status = 0);
 
@@ -52,7 +51,7 @@ namespace schmix {
         Ref<Mixer> m_Mixer;
         Ref<AudioOutput> m_Output;
 
-        ImGuiContext* m_Context;
+        Ref<ImGuiInstance> m_ImGui;
 
         ScriptRuntime* m_Runtime;
     };
