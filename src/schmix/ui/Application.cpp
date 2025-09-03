@@ -120,9 +120,7 @@ namespace schmix {
             return false;
         }
 
-        std::string pluginName = "Sine generator";
-        m_Instance = std::make_unique<Coral::ManagedObject>(testType.CreateInstance(pluginName));
-
+        m_Instance = std::make_unique<Coral::ManagedObject>(testType.CreateInstance());
         if (!m_Instance->IsValid()) {
             m_Instance.reset();
 

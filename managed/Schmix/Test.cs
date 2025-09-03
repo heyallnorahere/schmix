@@ -13,28 +13,9 @@ internal sealed class Test : IDisposable
     private const int Channels = 2;
     private const int ChunkSize = SampleRate / 4;
 
-    private static Plugin? FindPluginByNativeName(NativeString pluginName)
+    public Test()
     {
-        var name = pluginName.ToString();
-        if (name is null)
-        {
-            return null;
-        }
-
-        Console.WriteLine(name);
-
-        var plugin = Plugin.GetByName(name);
-        if (plugin is null)
-        {
-            return null;
-        }
-
-        return plugin;
-    }
-
-    public Test(string pluginName)
-    {
-        var plugin = FindPluginByNativeName(pluginName);
+        var plugin = Plugin.GetByName("Oscillator");
         if (plugin is null)
         {
             throw new ArgumentException("Invalid plugin name!");
@@ -57,12 +38,15 @@ internal sealed class Test : IDisposable
 
         mOutput.ResetSignal();
 
-        var outputs = new IAudioOutput[]
-        {
-            mOutput
-        };
+        var inputs = new IAudioInput?[mModule.InputCount];
+        var outputs = new IAudioOutput?[mModule.OutputCount];
 
-        mModule.Process(Array.Empty<IAudioInput>(), outputs, SampleRate, ChunkSize, Channels);
+        Array.Fill(inputs, null);
+        Array.Fill(outputs, null);
+
+        outputs[0] = mOutput;
+
+        mModule.Process(inputs, outputs, SampleRate, ChunkSize, Channels);
 
         return mOutput.Flush();
     }
