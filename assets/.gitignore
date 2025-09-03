@@ -1,3 +1,5 @@
 *.dll
 *.pdb
 *.deps.json
+*.so
+*.dylib

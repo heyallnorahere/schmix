@@ -1,5 +1,4 @@
 using Schmix.Audio;
-using Schmix.Core;
 using Schmix.Example.Waves;
 using Schmix.Extension;
 

@@ -10,7 +10,6 @@ namespace schmix {
 
         bool PluginsLoaded;
         std::filesystem::path PluginDirectory;
-        Coral::AssemblyLoadContext LoadContext;
     };
 
     static std::unique_ptr<PluginData> s_Data;
@@ -24,7 +23,7 @@ namespace schmix {
         s_Data->Runtime = runtime;
 
         auto core = runtime->GetCore();
-        auto& pluginType = core->GetType("Schmix.Extension.Plugin");
+        auto& pluginType = core->GetLocalType("Schmix.Extension.Plugin");
 
         if (!pluginType) {
             SCHMIX_ERROR("Failed to find plugin type!");
@@ -60,7 +59,10 @@ namespace schmix {
 
         s_Data->PluginsLoaded = true;
         s_Data->PluginDirectory = directory;
-        s_Data->LoadContext = host.CreateAssemblyLoadContext("Plugins");
+
+        // hacky! dont do this!!!!!
+        auto& context = s_Data->Runtime->GetLoadContext();
+        std::int32_t contextID = *(std::int32_t*)&context;
 
         SCHMIX_INFO("Loading plugins in directory: {}", directory.string().c_str());
 
@@ -81,7 +83,7 @@ namespace schmix {
                 std::string pathStr = path.string();
                 SCHMIX_INFO("Loading plugin library: {}", pathStr.c_str());
 
-                auto& assembly = s_Data->LoadContext.LoadAssembly(pathStr);
+                auto& assembly = s_Data->Runtime->LoadAssembly(pathStr);
                 if (assembly.GetLoadStatus() != Coral::AssemblyLoadStatus::Success) {
                     SCHMIX_ERROR("Failed to load plugin library: {}", pathStr.c_str());
 
@@ -90,25 +92,23 @@ namespace schmix {
                 }
 
                 std::int32_t id = assembly.GetAssemblyID();
-                Coral::String errorMessage =
-                    s_Data->PluginType->InvokeStaticMethod<Coral::String, std::int32_t>(
-                        "LoadPluginsFromAssembly_Native", std::move(id));
+                std::int32_t pluginsLoaded =
+                    s_Data->PluginType
+                        ->InvokeStaticMethod<std::int32_t, std::int32_t, std::int32_t>(
+                            "LoadPluginsFromAssembly_Native", std::move(contextID), std::move(id));
 
-                if (errorMessage.Data() != nullptr) {
-                    SCHMIX_ERROR("Failed to load plugins from assembly {}: {}", pathStr.c_str(),
-                                 errorMessage.Data());
-
-                    Coral::String::Free(errorMessage);
+                if (pluginsLoaded < 0) {
+                    SCHMIX_ERROR("Failed to load plugins from assembly {}", pathStr.c_str());
 
                     UnloadPlugins();
                     return false;
                 }
 
-                pluginCount++;
+                pluginCount += (std::size_t)pluginsLoaded;
             }
         }
 
-        SCHMIX_INFO("Loaded {} plugins", pluginCount);
+        SCHMIX_INFO("Loaded {} plugin(s)", pluginCount);
         return true;
     }
 
@@ -124,10 +124,6 @@ namespace schmix {
         Coral::GC::Collect();
 
         s_Data->PluginType->InvokeStaticMethod("UnloadPlugins");
-
-        auto& host = s_Data->Runtime->GetHost();
-        host.UnloadAssemblyLoadContext(s_Data->LoadContext);
-
         s_Data->PluginsLoaded = false;
     }
 } // namespace schmix

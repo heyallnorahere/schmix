@@ -4,8 +4,6 @@
 #include "schmix/script/Bindings.h"
 #include "schmix/script/Plugin.h"
 
-#include <imgui.h>
-
 namespace schmix {
     static Application* s_App;
 
@@ -32,11 +30,8 @@ namespace schmix {
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
-        if (m_Instance) {
-            m_Instance->InvokeMethod("Dispose");
-            m_Instance->Destroy();
-
-            m_Instance.reset();
+        if (m_ManagedType != nullptr) {
+            m_ManagedType->InvokeStaticMethod("Shutdown");
         }
 
         Plugin::Cleanup();
@@ -62,6 +57,7 @@ namespace schmix {
         m_Status = 0;
 
         m_Runtime = nullptr;
+        m_ManagedType = nullptr;
 
         m_Executable = std::filesystem::absolute(arguments[0]).lexically_normal();
         auto executableDirectory = m_Executable.parent_path();
@@ -87,7 +83,7 @@ namespace schmix {
 
         SCHMIX_INFO("Initializing...");
 
-        if (!CreateWindow() || !InitImGui() || !InitRuntime() || !InitAudio()) {
+        if (!CreateWindow() || !InitImGui() || !InitRuntime()) {
             SCHMIX_ERROR("Initialization failed! Exiting 1...");
             Quit(1);
         }
@@ -107,24 +103,6 @@ namespace schmix {
         m_Window = Ref<Window>::Create(title, width, height);
         if (!m_Window->IsInitialized()) {
             SCHMIX_ERROR("Failed to create main window!");
-            return false;
-        }
-
-        return true;
-    }
-
-    bool Application::InitAudio() {
-        auto& testType = m_Runtime->GetCore()->GetType("Schmix.Test");
-        if (!testType) {
-            SCHMIX_ERROR("Failed to find test type!");
-            return false;
-        }
-
-        m_Instance = std::make_unique<Coral::ManagedObject>(testType.CreateInstance());
-        if (!m_Instance->IsValid()) {
-            m_Instance.reset();
-
-            SCHMIX_ERROR("Failed to create test interface!");
             return false;
         }
 
@@ -163,6 +141,18 @@ namespace schmix {
             return false;
         }
 
+        auto& appType = m_Runtime->GetCore()->GetLocalType("Schmix.UI.Application");
+        if (!appType) {
+            SCHMIX_ERROR("Failed to find Application type!");
+            return false;
+        }
+
+        m_ManagedType = &appType;
+        if (!appType.InvokeStaticMethod<bool>("Init")) {
+            SCHMIX_ERROR("Failed to initialize Application in managed code!");
+            return false;
+        }
+
         return true;
     }
 
@@ -173,26 +163,12 @@ namespace schmix {
 
         m_Running = true;
         while (m_Running) {
-            Render();
-            ProcessAudio();
-
             Window::ProcessEvents();
             if (m_Window->IsCloseRequested()) {
                 m_Running = false;
             }
+
+            m_ManagedType->InvokeStaticMethod("Update", (double)0);
         }
     }
-
-    void Application::Render() {
-        m_ImGui->NewFrame();
-
-        static bool showDemoWindow = true;
-        if (showDemoWindow) {
-            ImGui::ShowDemoWindow(&showDemoWindow);
-        }
-
-        m_ImGui->RenderAndPresent();
-    }
-
-    void Application::ProcessAudio() { m_Instance->InvokeMethod("Update"); }
 } // namespace schmix

@@ -25,6 +25,8 @@ namespace schmix {
         Coral::HostInstance& GetHost() { return m_Host; }
         const Coral::HostInstance& GetHost() const { return m_Host; }
 
+        Coral::AssemblyLoadContext& GetLoadContext() { return m_LoadContext; }
+
         bool IsInitialized() const { return m_Initialized; }
 
         const Coral::ManagedAssembly* GetCore() const { return m_CoreAssembly; }

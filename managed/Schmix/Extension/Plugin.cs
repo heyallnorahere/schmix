@@ -26,28 +26,31 @@ public abstract class Plugin : IDisposable
         sPlugins = new Dictionary<string, PluginInfo>();
     }
 
-    internal static NativeString LoadPluginsFromAssembly_Native(int assemblyID)
+    internal static int LoadPluginsFromAssembly_Native(int loadContext, int assemblyID)
     {
         // see managed/Coral.Managed.csproj
         Assembly? assembly;
-        if (!AssemblyLoader.TryGetAssembly(assemblyID, out assembly) || assembly is null)
+        if (!AssemblyLoader.TryGetAssembly(loadContext, assemblyID, out assembly) || assembly is null)
         {
-            return "Failed to retrieve assembly from Coral!";
+            Log.Error("Failed to retrieve assembly from Coral!");
+            return -1;
         }
 
         try
         {
-            LoadPluginsFromAssembly(assembly);
-            return NativeString.Null();
+            return LoadPluginsFromAssembly(assembly);
         }
         catch (Exception ex)
         {
-            return ex.ToString();
+            Log.Error($"Failed to load plugins for assembly: {ex}");
+            return -1;
         }
     }
 
-    internal static void LoadPluginsFromAssembly(Assembly assembly)
+    internal static int LoadPluginsFromAssembly(Assembly assembly)
     {
+        int pluginCount = 0;
+
         var types = assembly.GetTypes();
         foreach (var type in types)
         {
@@ -59,26 +62,27 @@ public abstract class Plugin : IDisposable
             var attribute = type.GetCustomAttribute<RegisteredPluginAttribute>();
             if (attribute is null)
             {
+                Log.Debug($"Skipping type: {type.Namespace ?? "<global>"}.{type.Name}");
                 continue;
             }
 
             var pluginName = attribute.Name;
             if (sPlugins.ContainsKey(pluginName))
             {
-                // todo: issue error message
+                Log.Error($"Plugin already registered: {pluginName}");
                 continue;
             }
 
             if (!type.IsDerivedFrom(typeof(Plugin)))
             {
-                // todo: issue warning message
+                Log.Error($"Plugin \"{pluginName}\" is not derived from Plugin!");
                 continue;
             }
 
             var result = (Plugin?)Activator.CreateInstance(type, attribute.Parameters);
             if (result is null)
             {
-                // todo: issue error message
+                Log.Error($"Failed to initialize plugin \"{pluginName}\"");
                 continue;
             }
 
@@ -90,7 +94,12 @@ public abstract class Plugin : IDisposable
                 SourceAssembly = assembly,
                 PluginType = type
             });
+
+            Log.Info($"Loaded plugin: {pluginName}");
+            pluginCount++;
         }
+
+        return pluginCount;
     }
 
     public static Plugin? GetByName(string name)

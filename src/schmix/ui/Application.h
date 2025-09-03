@@ -23,19 +23,18 @@ namespace schmix {
         const Ref<Window>& GetWindow() const { return m_Window; }
         const Ref<ImGuiInstance>& GetImGuiInstance() const { return m_ImGui; }
 
+        bool IsRunning() const { return m_Running; }
+
         void Quit(int status = 0);
 
     private:
         Application(const std::vector<std::string>& arguments);
 
         bool CreateWindow();
-        bool InitAudio();
         bool InitImGui();
         bool InitRuntime();
 
         void Loop();
-        void Render();
-        void ProcessAudio();
 
         std::filesystem::path m_Executable;
         std::filesystem::path m_ResourceDirectory;
@@ -50,6 +49,6 @@ namespace schmix {
         Ref<ImGuiInstance> m_ImGui;
 
         Ref<ScriptRuntime> m_Runtime;
-        std::unique_ptr<Coral::ManagedObject> m_Instance;
+        Coral::Type* m_ManagedType;
     };
 } // namespace schmix
