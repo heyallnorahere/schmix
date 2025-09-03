@@ -13,7 +13,7 @@ Required packages:
 
 ```bash
 # build
-dotnet build
+dotnet build -f net8.0
 cmake . -B build
 cmake --build build -j 8
 

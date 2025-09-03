@@ -7,3 +7,13 @@
 [submodule "vendor/cimgui"]
 	path = vendor/cimgui
 	url = https://github.com/heyallnorahere/cimgui.git
+[submodule "vendor/imnodes"]
+	path = vendor/imnodes
+	url = https://github.com/Nelarius/imnodes.git
+[submodule "vendor/cimnodes"]
+	path = vendor/cimnodes
+	url = https://github.com/heyallnorahere/cimnodes.git
+[submodule "vendor/ImGui.NET"]
+	path = vendor/ImGui.NET
+	url = https://github.com/heyallnorahere/ImGui.NET.git
+    branch = schmix

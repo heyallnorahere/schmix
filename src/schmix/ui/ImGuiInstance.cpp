@@ -5,6 +5,8 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlgpu3.h>
 
+#include <imnodes.h>
+
 namespace schmix {
     void* ImGuiInstance::MemAlloc(std::size_t sz, void* user_data) { return Memory::Allocate(sz); }
     void ImGuiInstance::MemFree(void* ptr, void* user_data) { return Memory::Free(ptr); }
@@ -13,6 +15,7 @@ namespace schmix {
         m_Window = window;
 
         m_Context = nullptr;
+        m_NodesContext = nullptr;
 
         m_Initialized = false;
 
@@ -82,11 +85,20 @@ namespace schmix {
         }
 
         m_RendererInitialized = true;
+
+        m_NodesContext = imnodes::CreateContext();
+        imnodes::SetCurrentContext(m_NodesContext);
+
         m_Initialized = true;
     }
 
     ImGuiInstance::~ImGuiInstance() {
         MakeContextCurrent();
+        
+        if (m_NodesContext != nullptr) {
+            imnodes::DestroyContext(m_NodesContext);
+            imnodes::SetCurrentContext(nullptr);
+        }
 
         if (m_RendererInitialized) {
             m_Window->WaitForGPU();
@@ -121,6 +133,8 @@ namespace schmix {
 
         ImGui::SetAllocatorFunctions(MemAlloc, MemFree);
         ImGui::SetCurrentContext(m_Context);
+
+        imnodes::SetCurrentContext(m_NodesContext);
     }
 
     bool ImGuiInstance::NewFrame() {

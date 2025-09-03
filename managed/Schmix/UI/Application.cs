@@ -3,8 +3,11 @@ namespace Schmix.UI;
 using Coral.Managed.Interop;
 
 using ImGuiNET;
+using imnodesNET;
 
 using Schmix.Core;
+
+using System.Collections.Generic;
 
 public static class Application
 {
@@ -13,7 +16,7 @@ public static class Application
     internal static bool Init()
     {
         Log.Info("Hello from managed runtime!");
-        sTest = new Test();
+        // sTest = new Test();
 
         return true;
     }
@@ -45,6 +48,11 @@ public static class Application
     }
 
     private static bool sShowDemo = true;
+    private static bool sShowNodes = true;
+
+    private static readonly float[] sValues = new float[4];
+    private static readonly HashSet<int> sLinks = new HashSet<int>();
+
     private static bool Render(ImGuiInstance instance)
     {
         if (!instance.NewFrame())
@@ -62,6 +70,69 @@ public static class Application
             {
                 Log.Info("ImGui demo window closed");
             }
+        }
+
+        if (sShowNodes)
+        {
+            ImGui.Begin("Nodes", ref sShowNodes);
+            imnodes.PushAttributeFlag(AttributeFlags.EnableLinkDetachWithDragClick);
+            imnodes.BeginNodeEditor();
+
+            for (int i = 0; i < sValues.Length; i++)
+            {
+                imnodes.BeginNode(i);
+
+                imnodes.BeginNodeTitleBar();
+                ImGui.TextUnformatted($"Test node #{i + 1}");
+                imnodes.EndNodeTitleBar();
+
+                imnodes.BeginInputAttribute(i << 8);
+                ImGui.TextUnformatted("Input");
+                imnodes.EndInputAttribute();
+
+                imnodes.BeginStaticAttribute(i << 16);
+                ImGui.PushItemWidth(120f);
+                const string valueText = "Value";
+                ImGui.DragFloat(valueText, ref sValues[i], 0.01f);
+                ImGui.PopItemWidth();
+                imnodes.EndStaticAttribute();
+
+                imnodes.BeginOutputAttribute(i << 24);
+                const string outputText = "Output";
+                float textWidth = ImGui.CalcTextSize(outputText).X;
+                ImGui.Indent(120f - ImGui.CalcTextSize(valueText).X - textWidth);
+                ImGui.TextUnformatted(outputText);
+                imnodes.EndOutputAttribute();
+
+                imnodes.EndNode();
+            }
+
+            int start, end;
+            foreach (int link in sLinks)
+            {
+                start = (int)(link & 0x0000FF00);
+                end = (int)(link & 0xFF000000);
+
+                imnodes.Link(link, start, end);
+            }
+
+            imnodes.EndNodeEditor();
+
+            start = end = 0;
+            if (imnodes.IsLinkCreated(ref start, ref end))
+            {
+                int link = start | end;
+                sLinks.Add(link);
+            }
+
+            int destroyedLink = 0;
+            if (imnodes.IsLinkDestroyed(ref destroyedLink))
+            {
+                sLinks.Remove(destroyedLink);
+            }
+
+            imnodes.PopAttributeFlag();
+            ImGui.End();
         }
 
         if (!instance.RenderAndPresent())

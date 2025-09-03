@@ -3,10 +3,9 @@ namespace Schmix.UI;
 using Coral.Managed.Interop;
 
 using ImGuiNET;
+using imnodesNET;
 
 using Schmix.Core;
-
-using System.Runtime.InteropServices;
 
 public sealed class ImGuiInstance : RefCounted
 {
@@ -33,15 +32,20 @@ public sealed class ImGuiInstance : RefCounted
 
         nint context = Context;
         ImGui.SetCurrentContext(context);
+
+        context = NodesContext;
+        imnodesNative.imnodes_SetCurrentContext(context);
     }
 
     public unsafe bool NewFrame() => NewFrame_Impl(mAddress);
     public unsafe bool RenderAndPresent() => RenderAndPresent_Impl(mAddress);
 
     public unsafe nint Context => (nint)GetContext_Impl(mAddress);
+    public unsafe nint NodesContext => (nint)GetNodesContext_Impl(mAddress);
 
     internal static unsafe delegate*<void**, void**, void> GetAllocatorFunctions_Impl = null;
     internal static unsafe delegate*<void*, void*> GetContext_Impl = null;
+    internal static unsafe delegate*<void*, void*> GetNodesContext_Impl = null;
 
     internal static unsafe delegate*<void*, Bool32> NewFrame_Impl = null;
     internal static unsafe delegate*<void*, Bool32> RenderAndPresent_Impl = null;

@@ -110,8 +110,12 @@ namespace schmix {
         *freePtr = (void*)ImGuiInstance::MemFree;
     }
 
-    static void* ImGuiInstance_GetContext_Impl(ImGuiInstance* instance) {
+    static ImGuiContext* ImGuiInstance_GetContext_Impl(ImGuiInstance* instance) {
         return instance->GetContext();
+    }
+
+    static ImNodesContext* ImGuiInstance_GetNodesContext_Impl(ImGuiInstance* instance) {
+        return instance->GetNodesContext();
     }
 
     static Coral::Bool32 ImGuiInstance_NewFrame_Impl(ImGuiInstance* instance) {
@@ -160,6 +164,8 @@ namespace schmix {
                   (void*)ImGuiInstance_GetAllocatorFunctions_Impl },
                 { "Schmix.UI.ImGuiInstance", "GetContext_Impl",
                   (void*)ImGuiInstance_GetContext_Impl },
+                { "Schmix.UI.ImGuiInstance", "GetNodesContext_Impl",
+                  (void*)ImGuiInstance_GetNodesContext_Impl },
                 { "Schmix.UI.ImGuiInstance", "NewFrame_Impl", (void*)ImGuiInstance_NewFrame_Impl },
                 { "Schmix.UI.ImGuiInstance", "RenderAndPresent_Impl",
                   (void*)ImGuiInstance_RenderAndPresent_Impl },

@@ -4,6 +4,7 @@
 #include "schmix/ui/Window.h"
 
 struct ImGuiContext;
+struct ImNodesContext;
 
 namespace schmix {
     class ImGuiInstance : public RefCounted {
@@ -24,6 +25,7 @@ namespace schmix {
         const Ref<Window>& GetWindow() const { return m_Window; }
 
         ImGuiContext* GetContext() const { return m_Context; }
+        ImNodesContext* GetNodesContext() const { return m_NodesContext; }
 
         bool IsInitialized() const { return m_Initialized; }
 
@@ -31,6 +33,7 @@ namespace schmix {
         Ref<Window> m_Window;
 
         ImGuiContext* m_Context;
+        ImNodesContext* m_NodesContext;
         bool m_Initialized;
 
         bool m_PlatformInitialized, m_RendererInitialized;

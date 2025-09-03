@@ -2,10 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Coral.Managed.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="ImGui.NET" Version="1.91.6.1" />
+    <ProjectReference Include="..\..\vendor\ImGui.NET\src\ImGui.NET\ImGui.NET.csproj" />
+    <ProjectReference Include="..\..\vendor\ImGui.NET\src\ImNodes.NET\ImNodes.NET.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
