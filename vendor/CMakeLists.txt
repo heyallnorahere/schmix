@@ -40,6 +40,7 @@ endif()
 
 add_library(cimgui SHARED "${CIMGUI_DIR}/cimgui.cpp")
 target_link_libraries(cimgui PRIVATE imgui)
+set_target_properties(cimgui PROPERTIES CXX_STANDARD 11)
 
 set(IMGUI_EXPORT "extern \"C\"")
 if(WIN32)
@@ -55,8 +56,10 @@ target_include_directories(
     PRIVATE ${IMGUI_DIR}
 )
 
-set_target_properties(
-    cimgui PROPERTIES
-    CXX_STANDARD 11
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../assets/runtime/"
+add_custom_command(
+    TARGET cimgui
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:cimgui>
+        "${CMAKE_CURRENT_SOURCE_DIR}/../assets/runtime/"
 )
