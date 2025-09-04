@@ -1,3 +1,5 @@
+using ImGuiNET;
+
 using Schmix.Audio;
 using Schmix.Example.Waves;
 using Schmix.Extension;
@@ -13,6 +15,19 @@ namespace Schmix.Example
         {
             new SineWave()
         };
+
+        public override void DrawProperties()
+        {
+            const float width = 100f;
+
+            float baseFrequency = (float)mBaseFrequency;
+            ImGui.SetNextItemWidth(width);
+
+            if (ImGui.DragFloat("Base frequency", ref baseFrequency))
+            {
+                mBaseFrequency = baseFrequency;
+            }
+        }
 
         public const int GateInput = 0;
         public const int CVInput = 1;
@@ -63,6 +78,8 @@ namespace Schmix.Example
 
         public OscillatorModule()
         {
+            mBaseFrequency = 440;
+
             mPhases = new double[sWaves.Count][];
             Array.Fill(mPhases, Array.Empty<double>());
         }
@@ -71,9 +88,6 @@ namespace Schmix.Example
         {
             IAudioInput? gateInput = inputs[GateInput];
             IAudioInput? cvInput = inputs[CVInput];
-
-            // todo: pass in from dial
-            double baseFrequency = 440;
 
             // generate signal of coefficients over time to modify the frequency
             StereoSignal<double>? frequencyCoefficients = null;
@@ -86,6 +100,7 @@ namespace Schmix.Example
                 frequencyCoefficients = CVToPower(cvSignal, 2);
             }
 
+            var gateSignal = gateInput?.Signal;
             for (int i = 0; i < outputs.Count; i++)
             {
                 var currentOutput = outputs[i];
@@ -94,39 +109,55 @@ namespace Schmix.Example
                     continue;
                 }
 
-                ref var wavePhases = ref mPhases[i];
+                var wavePhases = mPhases[i];
                 if (wavePhases.Length < channels)
                 {
                     wavePhases = new double[channels];
                     Array.Fill(wavePhases, 0);
+
+                    mPhases[i] = wavePhases;
                 }
 
                 var signal = new StereoSignal<double>(channels, samplesRequested);
                 for (int j = 0; j < channels; j++)
                 {
-                    ref double phase = ref wavePhases[j];
+                    double phase = wavePhases[j];
 
                     for (int k = 0; k < samplesRequested; k++)
                     {
-                        double sampleFrequency = baseFrequency;
-                        if (frequencyCoefficients is not null)
+                        double gate = 1;
+                        if (gateSignal is not null)
                         {
-                            sampleFrequency *= frequencyCoefficients[j][k];
+                            gate = gateSignal[j][k];
                         }
 
-                        var waveform = sWaves[i];
-                        double phaseCoefficient = waveform.GetPhaseCoefficient(sampleFrequency);
-                        phase += phaseCoefficient / sampleRate;
+                        double sample = 0;
+                        if (gate > 0.1)
+                        {
+                            double sampleFrequency = mBaseFrequency;
+                            if (frequencyCoefficients is not null)
+                            {
+                                sampleFrequency *= frequencyCoefficients[j][k];
+                            }
 
-                        double sample = waveform.Calculate(phase);
+                            var waveform = sWaves[i];
+                            double phaseCoefficient = waveform.GetPhaseCoefficient(sampleFrequency);
+
+                            sample = waveform.Calculate(phase);
+                            phase += phaseCoefficient / (double)sampleRate;
+                        }
+
                         signal[j][k] = sample;
                     }
+
+                    wavePhases[j] = phase;
                 }
 
                 currentOutput.PutAudio(signal);
             }
         }
 
+        private double mBaseFrequency;
         private readonly double[][] mPhases;
     }
 

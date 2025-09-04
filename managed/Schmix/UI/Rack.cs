@@ -432,6 +432,7 @@ public static class Rack
                         cable = endpoint.Cable;
                     }
 
+                    cable?.ResetSignal();
                     outputs[i] = cable;
                 }
 
