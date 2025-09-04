@@ -3,8 +3,6 @@
 
 #include <Coral/GC.hpp>
 
-#include <stdlib.h>
-
 namespace schmix {
     static void CoralMessageCallback(std::string_view message, Coral::MessageLevel level) {
         auto messageStr = std::string(message);

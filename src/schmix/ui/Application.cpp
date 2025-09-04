@@ -141,7 +141,7 @@ namespace schmix {
             return false;
         }
 
-        auto& appType = m_Runtime->GetCore()->GetLocalType("Schmix.UI.Application");
+        auto& appType = m_Runtime->GetCore()->GetType("Schmix.UI.Application");
         if (!appType) {
             SCHMIX_ERROR("Failed to find Application type!");
             return false;

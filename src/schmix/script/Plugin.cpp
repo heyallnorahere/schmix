@@ -23,7 +23,7 @@ namespace schmix {
         s_Data->Runtime = runtime;
 
         auto core = runtime->GetCore();
-        auto& pluginType = core->GetLocalType("Schmix.Extension.Plugin");
+        auto& pluginType = core->GetType("Schmix.Extension.Plugin");
 
         if (!pluginType) {
             SCHMIX_ERROR("Failed to find plugin type!");

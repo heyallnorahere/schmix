@@ -36,6 +36,8 @@ namespace Schmix.Example
             return sWaves[index].Name;
         }
 
+        public override string Name => "Oscillator";
+
         public override int InputCount => 2;
         public override int OutputCount => sWaves.Count;
 
@@ -75,15 +77,13 @@ namespace Schmix.Example
 
             // generate signal of coefficients over time to modify the frequency
             StereoSignal<double>? frequencyCoefficients = null;
-            if (cvInput is not null)
+            var cvSignal = cvInput?.Signal;
+
+            if (cvSignal is not null)
             {
-                var cvSignal = cvInput.Signal;
-                if (cvSignal is not null)
-                {
-                    // using cv as volt per octave
-                    // octave ratio is 2:1
-                    frequencyCoefficients = CVToPower(cvSignal, 2);
-                }
+                // using cv as volt per octave
+                // octave ratio is 2:1
+                frequencyCoefficients = CVToPower(cvSignal, 2);
             }
 
             for (int i = 0; i < outputs.Count; i++)

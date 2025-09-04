@@ -3,28 +3,52 @@ namespace Schmix.UI;
 using Coral.Managed.Interop;
 
 using ImGuiNET;
-using imnodesNET;
 
 using Schmix.Core;
+using Schmix.Extension;
 
-using System.Collections.Generic;
+using System.Numerics;
 
 public static class Application
 {
-    private static Test? sTest = null;
+    private static bool sShowDemo = true;
+    private static bool sShowDockspace = true;
+    private static bool sShowRack = true;
 
     internal static bool Init()
     {
-        Log.Info("Hello from managed runtime!");
-        // sTest = new Test();
+        Log.Info("Initializing and populating rack...");
+
+        Rack.Channels = 2;
+        Rack.SampleRate = 40960;
+
+        var pluginNames = new string[]
+        {
+            "Oscillator",
+            "Oscillator",
+        };
+
+        foreach (var name in pluginNames)
+        {
+            var module = Plugin.GetByName(name)?.Instantiate();
+            if (module is not null)
+            {
+                Rack.AddModule(module);
+            }
+            else
+            {
+                Log.Warn($"Failed to instantiate plugin: {name}");
+            }
+        }
 
         return true;
     }
 
     internal static void Shutdown()
     {
-        Log.Info("Tearing down managed interfaces...");
-        sTest?.Dispose();
+        Log.Debug("Managed application shutting down");
+
+        Rack.Clear();
     }
 
     internal static void Update(double deltaTime)
@@ -38,20 +62,46 @@ public static class Application
             return;
         }
 
-        if (sTest is not null && !sTest.Update())
-        {
-            Log.Error("Failed to update audio! Exiting 1...");
-            Quit(1);
-
-            return;
-        }
+        Rack.Update();
     }
 
-    private static bool sShowDemo = true;
-    private static bool sShowNodes = true;
+    private static void Dockspace(ref bool show)
+    {
+        if (!show)
+        {
+            return;
+        }
 
-    private static readonly float[] sValues = new float[4];
-    private static readonly HashSet<int> sLinks = new HashSet<int>();
+        var viewport = ImGui.GetMainViewport();
+        ImGui.SetNextWindowPos(viewport.WorkPos);
+        ImGui.SetNextWindowSize(viewport.WorkSize);
+        ImGui.SetNextWindowViewport(viewport.ID);
+
+        ImGuiWindowFlags flags = 0;
+        flags |= ImGuiWindowFlags.NoDocking;
+        flags |= ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize;
+        flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoNavFocus;
+
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
+
+        ImGui.Begin("Dockspace", ref show, flags);
+        ImGui.PopStyleVar(3);
+
+        var io = ImGui.GetIO();
+        if (io.ConfigFlags.HasFlag(ImGuiConfigFlags.DockingEnable))
+        {
+            uint id = ImGui.GetID("main-dockspace");
+            ImGui.DockSpace(id);
+        }
+        else
+        {
+            ImGui.Text("Docking is disabled.");
+        }
+
+        ImGui.End();
+    }
 
     private static bool Render(ImGuiInstance instance)
     {
@@ -62,77 +112,12 @@ public static class Application
 
         instance.MakeContextCurrent();
 
+        Dockspace(ref sShowDockspace);
+        Rack.Render(ref sShowRack);
+
         if (sShowDemo)
         {
             ImGui.ShowDemoWindow(ref sShowDemo);
-
-            if (!sShowDemo)
-            {
-                Log.Info("ImGui demo window closed");
-            }
-        }
-
-        if (sShowNodes)
-        {
-            ImGui.Begin("Nodes", ref sShowNodes);
-            imnodes.PushAttributeFlag(AttributeFlags.EnableLinkDetachWithDragClick);
-            imnodes.BeginNodeEditor();
-
-            for (int i = 0; i < sValues.Length; i++)
-            {
-                imnodes.BeginNode(i);
-
-                imnodes.BeginNodeTitleBar();
-                ImGui.TextUnformatted($"Test node #{i + 1}");
-                imnodes.EndNodeTitleBar();
-
-                imnodes.BeginInputAttribute(i << 8);
-                ImGui.TextUnformatted("Input");
-                imnodes.EndInputAttribute();
-
-                imnodes.BeginStaticAttribute(i << 16);
-                ImGui.PushItemWidth(120f);
-                const string valueText = "Value";
-                ImGui.DragFloat(valueText, ref sValues[i], 0.01f);
-                ImGui.PopItemWidth();
-                imnodes.EndStaticAttribute();
-
-                imnodes.BeginOutputAttribute(i << 24);
-                const string outputText = "Output";
-                float textWidth = ImGui.CalcTextSize(outputText).X;
-                ImGui.Indent(120f - ImGui.CalcTextSize(valueText).X - textWidth);
-                ImGui.TextUnformatted(outputText);
-                imnodes.EndOutputAttribute();
-
-                imnodes.EndNode();
-            }
-
-            int start, end;
-            foreach (int link in sLinks)
-            {
-                start = (int)(link & 0x0000FF00);
-                end = (int)(link & 0xFF000000);
-
-                imnodes.Link(link, start, end);
-            }
-
-            imnodes.EndNodeEditor();
-
-            start = end = 0;
-            if (imnodes.IsLinkCreated(ref start, ref end))
-            {
-                int link = start | end;
-                sLinks.Add(link);
-            }
-
-            int destroyedLink = 0;
-            if (imnodes.IsLinkDestroyed(ref destroyedLink))
-            {
-                sLinks.Remove(destroyedLink);
-            }
-
-            imnodes.PopAttributeFlag();
-            ImGui.End();
         }
 
         if (!instance.RenderAndPresent())

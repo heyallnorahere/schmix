@@ -1,14 +1,85 @@
 namespace Schmix;
 
-using Coral.Managed.Interop;
+using ImGuiNET;
+using imnodesNET;
 
 using Schmix.Audio;
 using Schmix.Extension;
 
 using System;
+using System.Collections.Generic;
 
 internal sealed class Test : IDisposable
 {
+    private static readonly float[] sValues = new float[4];
+    private static readonly HashSet<int> sLinks = new HashSet<int>();
+
+    public static void NodeTest(ref bool show)
+    {
+        if (!show)
+        {
+            return;
+        }
+
+        ImGui.Begin("Nodes", ref show);
+        imnodes.PushAttributeFlag(AttributeFlags.EnableLinkDetachWithDragClick);
+        imnodes.BeginNodeEditor();
+
+        for (int i = 1; i <= sValues.Length; i++)
+        {
+            imnodes.BeginNode(i);
+
+            imnodes.BeginNodeTitleBar();
+            ImGui.TextUnformatted($"Test node #{i}");
+            imnodes.EndNodeTitleBar();
+
+            imnodes.BeginInputAttribute(i << 8);
+            ImGui.TextUnformatted("Input");
+            imnodes.EndInputAttribute();
+
+            imnodes.BeginStaticAttribute(i << 16);
+            ImGui.SameLine();
+            ImGui.PushItemWidth(120f);
+            ImGui.DragFloat("Value", ref sValues[i - 1], 0.01f);
+            ImGui.PopItemWidth();
+            imnodes.EndStaticAttribute();
+
+            imnodes.BeginOutputAttribute(i << 24);
+            ImGui.SameLine();
+            ImGui.TextUnformatted("Output");
+            imnodes.EndOutputAttribute();
+
+            imnodes.EndNode();
+        }
+
+        int start, end;
+        foreach (int link in sLinks)
+        {
+            start = (int)(link & 0x0000FF00);
+            end = (int)(link & 0xFF000000);
+
+            imnodes.Link(link, start, end);
+        }
+
+        imnodes.EndNodeEditor();
+
+        start = end = 0;
+        if (imnodes.IsLinkCreated(ref start, ref end))
+        {
+            int link = start | end;
+            sLinks.Add(link);
+        }
+
+        int destroyedLink = 0;
+        if (imnodes.IsLinkDestroyed(ref destroyedLink))
+        {
+            sLinks.Remove(destroyedLink);
+        }
+
+        imnodes.PopAttributeFlag();
+        ImGui.End();
+    }
+
     private const int SampleRate = 40960;
     private const int Channels = 2;
     private const int ChunkSize = SampleRate / 4;
