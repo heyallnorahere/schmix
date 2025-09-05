@@ -3,6 +3,7 @@ namespace Schmix.UI;
 using ImGuiNET;
 using imnodesNET;
 
+using Schmix.Algorithm;
 using Schmix.Core;
 using Schmix.Extension;
 
@@ -20,8 +21,55 @@ public static class Rack
         public int ID;
     }
 
-    private struct NodeMeta
+    private struct NodeMeta : IDirectedAcyclicalGraphVertex<NodeMeta>
     {
+        IReadOnlyCollection<NodeMeta> IDirectedAcyclicalGraphVertex<NodeMeta>.Inputs
+        {
+            get
+            {
+                var inputs = new List<NodeMeta>();
+                foreach (var endpoint in Inputs.Values)
+                {
+                    var cable = endpoint.Cable;
+                    if (cable is null)
+                    {
+                        continue;
+                    }
+
+                    var source = cable.Source;
+                    var sourceNode = source.Instance;
+                    int sourceID = sourceNode.ID;
+
+                    var meta = sNodes[sourceID];
+                    inputs.Add(meta);
+                }
+
+                return inputs;
+            }
+        }
+
+        int IDirectedAcyclicalGraphVertex<NodeMeta>.OutputCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (var endpoint in Outputs.Values)
+                {
+                    var cable = endpoint.Cable;
+                    if (cable is null)
+                    {
+                        continue;
+                    }
+
+                    count++;
+                }
+
+                return count;
+            }
+        }
+
+        int IGraphVertex<NodeMeta>.VertexID => Instance.ID;
+
         public Node Instance;
         public Dictionary<int, EndpointMeta> Inputs, Outputs;
     }
@@ -78,106 +126,21 @@ public static class Rack
         }
     }
 
-    private static IReadOnlySet<int> GetNodeDependencies(IReadOnlyDictionary<int, EndpointMeta> inputs)
-    {
-        var dependencies = new HashSet<int>();
-
-        foreach (var endpoint in inputs.Values)
-        {
-            var cable = endpoint.Cable;
-            if (cable is null)
-            {
-                continue;
-            }
-
-            var source = cable.Source;
-            var sourceNode = source.Instance;
-            var sourceID = sourceNode.ID;
-
-            dependencies.Add(sourceID);
-        }
-
-        return dependencies;
-    }
-
-    private static int GetConnectedOutputs(IReadOnlyDictionary<int, EndpointMeta> outputs)
-    {
-        int count = 0;
-        foreach (var endpoint in outputs.Values)
-        {
-            var cable = endpoint.Cable;
-            if (cable is null)
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    private static void UpdateNodeDepth(int id, int increment, IDictionary<int, int> nodeDepths, IReadOnlyDictionary<int, IReadOnlySet<int>> nodeDependencies)
-    {
-        nodeDepths[id] += increment;
-
-        foreach (int dependency in nodeDependencies[id])
-        {
-            UpdateNodeDepth(dependency, increment, nodeDepths, nodeDependencies);
-        }
-    }
-
-    private static void ProcessNodeDepth(int id, int currentDepth, IDictionary<int, int> nodeDepths, IReadOnlyDictionary<int, IReadOnlySet<int>> nodeDependencies)
-    {
-        int currentMaxDepth;
-        if (!nodeDepths.TryGetValue(id, out currentMaxDepth))
-        {
-            // we havent seen this node before!
-            nodeDepths.Add(id, currentMaxDepth);
-
-            // keep recursing
-            int nextDepth = currentDepth + 1;
-            foreach (int dependency in nodeDependencies[id])
-            {
-                ProcessNodeDepth(dependency, nextDepth, nodeDepths, nodeDependencies);
-            }
-        }
-        else if (currentDepth > currentMaxDepth)
-        {
-            // correct this node and all its dependencies
-            int depthIncrement = currentDepth - currentMaxDepth;
-            UpdateNodeDepth(id, depthIncrement, nodeDepths, nodeDependencies);
-        }
-    }
-
     [MemberNotNull(nameof(sNodeUpdateOrder))]
     private static void RegenerateUpdateOrder()
     {
         Log.Info("Regenerating update order...");
 
-        var outputlessNodes = new LinkedList<int>();
-        var nodeDependencies = new Dictionary<int, IReadOnlySet<int>>();
+        var solver = new DirectedAcyclicalGraphSolver<NodeMeta>();
+        sNodeUpdateOrder = solver.Solve(sNodes.Values).Select(meta => meta.Instance.ID);
 
-        foreach ((int id, var meta) in sNodes)
+        var msg = "Update order: ";
+        foreach (int id in sNodeUpdateOrder)
         {
-            var dependencies = GetNodeDependencies(meta.Inputs);
-            nodeDependencies.Add(id, dependencies);
-
-            int connectedCount = GetConnectedOutputs(meta.Outputs);
-            if (connectedCount == 0)
-            {
-                outputlessNodes.AddLast(id);
-            }
+            msg += $" {id}";
         }
 
-        var depths = new Dictionary<int, int>();
-        foreach (int id in outputlessNodes)
-        {
-            ProcessNodeDepth(id, 0, depths, nodeDependencies);
-        }
-
-        var order = new List<int>(depths.Keys);
-        order.Sort(); // jesus take the wheel, i guess
-
-        sNodeUpdateOrder = order;
+        Log.Debug(msg);
     }
 
     public static void AddNode(Node node)

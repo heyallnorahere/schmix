@@ -25,6 +25,7 @@ public static class Application
         var pluginNames = new string[]
         {
             "Oscillator",
+            "Oscillator",
             "Output",
         };
 
