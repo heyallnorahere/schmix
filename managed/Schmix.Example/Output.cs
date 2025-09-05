@@ -30,9 +30,9 @@ internal sealed class OutputModule : Module
             }
 
             int queued = mOutput.QueuedSamples;
-            int chunkSize = mOutput.SampleRate / 4;
+            int chunkSize = mOutput.SampleRate / 30;
 
-            if (queued < chunkSize)
+            if (queued < mOutput.SampleRate / 4)
             {
                 return chunkSize;
             }

@@ -4,8 +4,6 @@
 #include "schmix/script/Bindings.h"
 #include "schmix/script/Plugin.h"
 
-#include "schmix/audio/MIDI.h"
-
 namespace schmix {
     static Application* s_App;
 
@@ -153,6 +151,8 @@ namespace schmix {
         }
 
         m_ManagedType = &appType;
+        m_MIDIType = &m_Runtime->GetCore()->GetType("Schmix.Audio.MIDI");
+
         if (!appType.InvokeStaticMethod<bool>("Init")) {
             SCHMIX_ERROR("Failed to initialize Application in managed code!");
             return false;
@@ -166,6 +166,15 @@ namespace schmix {
             return;
         }
 
+        MIDI::Callbacks callbacks;
+        callbacks.NoteBegin = std::bind(&Application::NoteBegin, this, std::placeholders::_1,
+                                        std::placeholders::_2, std::placeholders::_3);
+
+        callbacks.NoteEnd =
+            std::bind(&Application::NoteEnd, this, std::placeholders::_1, std::placeholders::_2);
+
+        callbacks.ResetTime = std::bind(&Application::ResetTime, this);
+
         m_Running = true;
         while (m_Running) {
             Window::ProcessEvents();
@@ -173,9 +182,20 @@ namespace schmix {
                 m_Running = false;
             }
 
-            MIDI::Update();
+            MIDI::Update(callbacks);
 
             m_ManagedType->InvokeStaticMethod("Update", (double)0);
         }
     }
+
+    void Application::NoteBegin(const MIDI::NoteInfo& note, double velocity,
+                                std::chrono::nanoseconds timeSinceLast) {
+        m_MIDIType->InvokeStaticMethod("NoteBegin", &note, velocity, timeSinceLast.count());
+    }
+
+    void Application::NoteEnd(const MIDI::NoteInfo& note, std::chrono::nanoseconds timeSinceLast) {
+        m_MIDIType->InvokeStaticMethod("NoteEnd", &note, timeSinceLast.count());
+    }
+
+    void Application::ResetTime() { m_MIDIType->InvokeStaticMethod("ResetTime"); }
 } // namespace schmix

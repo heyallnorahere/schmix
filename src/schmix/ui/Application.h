@@ -1,17 +1,17 @@
 #pragma once
 
-#include "schmix/ui/ImGuiInstance.h"
-#include "schmix/ui/Window.h"
+#include "schmix/audio/MIDI.h"
 
 #include "schmix/script/ScriptRuntime.h"
+
+#include "schmix/ui/ImGuiInstance.h"
+#include "schmix/ui/Window.h"
 
 typedef struct SDL_AudioStream SDL_AudioStream;
 
 struct ImGuiContext;
 
 namespace schmix {
-    class ScriptRuntime;
-
     class Application {
     public:
         static int Run(int argc, const char** argv);
@@ -36,6 +36,13 @@ namespace schmix {
 
         void Loop();
 
+        void NoteBegin(const MIDI::NoteInfo& note, double velocity,
+                       std::chrono::nanoseconds timeSinceLast);
+
+        void NoteEnd(const MIDI::NoteInfo& info, std::chrono::nanoseconds timeSinceLast);
+
+        void ResetTime();
+
         std::filesystem::path m_Executable;
         std::filesystem::path m_ResourceDirectory;
 
@@ -50,5 +57,7 @@ namespace schmix {
 
         Ref<ScriptRuntime> m_Runtime;
         Coral::Type* m_ManagedType;
+
+        Coral::Type* m_MIDIType;
     };
 } // namespace schmix

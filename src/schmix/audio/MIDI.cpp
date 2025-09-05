@@ -17,14 +17,6 @@ namespace schmix {
 
     static std::unique_ptr<MIDIData> s_Data;
 
-    using MIDIDuration = std::chrono::duration<libremidi::timestamp, std::nano>;
-    static libremidi::timestamp GetTimestamp(libremidi::timestamp reference) {
-        auto now = MIDI::Now();
-        auto fromEpoch = now.time_since_epoch();
-
-        return std::chrono::duration_cast<MIDIDuration>(fromEpoch).count();
-    }
-
     static void MIDILog(spdlog::level::level_enum level, std::string_view errorText,
                         const libremidi::source_location& loc) {
         spdlog::source_loc location;
@@ -44,8 +36,6 @@ namespace schmix {
     }
 
     static void OnMessage(libremidi::message&& message) {
-        SCHMIX_DEBUG("Message received");
-
         std::lock_guard lock(s_Data->Lock);
         s_Data->MessageQueue.push(message);
     }
@@ -54,8 +44,7 @@ namespace schmix {
         SCHMIX_INFO("MIDI device added: {}", port.display_name);
 
         libremidi::input_configuration config;
-        config.timestamps = libremidi::timestamp_mode::Custom;
-        config.get_timestamp = GetTimestamp;
+        config.timestamps = libremidi::timestamp_mode::Relative;
 
         config.on_error = MIDIError;
         config.on_warning = MIDIWarn;
@@ -121,14 +110,6 @@ namespace schmix {
         return note;
     }
 
-    static MIDI::Timestamp ConvertTimestamp(libremidi::timestamp ts) {
-        auto midiTimeSinceEpoch = MIDIDuration(ts);
-        auto timeSinceEpoch =
-            std::chrono::duration_cast<MIDI::Timestamp::duration>(midiTimeSinceEpoch);
-
-        return MIDI::Timestamp(timeSinceEpoch);
-    }
-
     void MIDI::Update(const Callbacks& callbacks) {
         std::lock_guard lock(s_Data->Lock);
 
@@ -136,7 +117,7 @@ namespace schmix {
             const auto& message = s_Data->MessageQueue.front();
 
             auto type = message.get_message_type();
-            auto timestamp = ConvertTimestamp(message.timestamp);
+            auto timeSinceLast = std::chrono::nanoseconds(message.timestamp);
 
             switch (type) {
             case libremidi::message_type::NOTE_ON: {
@@ -147,7 +128,7 @@ namespace schmix {
                     (double)velocityByte * 2 / (double)std::numeric_limits<std::uint8_t>::max();
 
                 if (callbacks.NoteBegin) {
-                    callbacks.NoteBegin(note, velocity, timestamp);
+                    callbacks.NoteBegin(note, velocity, timeSinceLast);
                 } else {
                     SCHMIX_DEBUG("Note {} pressed on channel {} with velocity {}", note.ID,
                                  note.Channel, velocity);
@@ -157,7 +138,7 @@ namespace schmix {
                 auto note = NoteFromMessage(message);
 
                 if (callbacks.NoteEnd) {
-                    callbacks.NoteEnd(note, timestamp);
+                    callbacks.NoteEnd(note, timeSinceLast);
                 } else {
                     SCHMIX_DEBUG("Note {} released on channel {}", note.ID, note.Channel);
                 }
@@ -167,9 +148,11 @@ namespace schmix {
                 break;
             }
 
+            if (callbacks.ResetTime) {
+                callbacks.ResetTime();
+            }
+
             s_Data->MessageQueue.pop();
         }
     }
-
-    MIDI::Timestamp MIDI::Now() { return std::chrono::steady_clock::now(); }
 } // namespace schmix

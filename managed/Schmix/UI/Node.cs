@@ -5,6 +5,7 @@ using imnodesNET;
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 public abstract class Node : IDisposable
 {
@@ -47,6 +48,7 @@ public abstract class Node : IDisposable
         }
 
         imnodes.BeginStaticAttribute(mStaticID);
+        ImGui.Dummy(Vector2.Zero);
         RenderContent();
         imnodes.EndStaticAttribute();
     }

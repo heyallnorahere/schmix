@@ -577,6 +577,7 @@ public static class Rack
                     imnodes.EndOutputAttribute();
                 }
 
+                ImGui.Dummy(Vector2.Zero);
                 imnodes.EndNode();
 
                 nodeSize = ImGui.GetItemRectSize();
