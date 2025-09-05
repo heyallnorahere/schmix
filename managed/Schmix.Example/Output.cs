@@ -47,7 +47,7 @@ internal sealed class OutputModule : Module
 
     public override string GetInputName(int index) => index > 0 ? "<unused>" : "Audio";
 
-    public override void Process(IReadOnlyList<IAudioInput?> inputs, IReadOnlyList<IAudioOutput?> outputs, int sampleRate, int samplesRequested, int channels)
+    public override void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels)
     {
         var audioInput = inputs[0];
         var audio = audioInput?.Signal;

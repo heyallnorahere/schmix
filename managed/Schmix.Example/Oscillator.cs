@@ -13,7 +13,7 @@ internal sealed class OscillatorModule : Module
 {
     private static readonly IReadOnlyList<IWaveform> sWaves = new IWaveform[]
     {
-            new SineWave()
+        new SineWave()
     };
 
     public override void DrawProperties()
@@ -84,10 +84,10 @@ internal sealed class OscillatorModule : Module
         Array.Fill(mPhases, Array.Empty<double>());
     }
 
-    public override void Process(IReadOnlyList<IAudioInput?> inputs, IReadOnlyList<IAudioOutput?> outputs, int sampleRate, int samplesRequested, int channels)
+    public override void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels)
     {
-        IAudioInput? gateInput = inputs[GateInput];
-        IAudioInput? cvInput = inputs[CVInput];
+        var gateInput = inputs[GateInput];
+        var cvInput = inputs[CVInput];
 
         // generate signal of coefficients over time to modify the frequency
         StereoSignal<double>? frequencyCoefficients = null;
@@ -153,7 +153,7 @@ internal sealed class OscillatorModule : Module
                 wavePhases[j] = phase;
             }
 
-            currentOutput.PutAudio(signal);
+            currentOutput.PutSignal(signal);
         }
     }
 

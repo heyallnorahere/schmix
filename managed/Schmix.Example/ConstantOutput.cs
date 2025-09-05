@@ -33,7 +33,7 @@ internal sealed class ConstantOutputModule : Module
         }
     }
 
-    public override void Process(IReadOnlyList<IAudioInput?> inputs, IReadOnlyList<IAudioOutput?> outputs, int sampleRate, int samplesRequested, int channels)
+    public override void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels)
     {
         var mainOutput = outputs[0];
         if (mainOutput is null)
@@ -50,7 +50,7 @@ internal sealed class ConstantOutputModule : Module
             }
         }
 
-        mainOutput.PutAudio(signal);
+        mainOutput.PutSignal(signal);
     }
 }
 

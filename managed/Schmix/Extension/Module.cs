@@ -56,7 +56,7 @@ public abstract class Module : IDisposable
     {
     }
 
-    public abstract void Process(IReadOnlyList<IAudioInput?> inputs, IReadOnlyList<IAudioOutput?> outputs, int sampleRate, int samplesRequested, int channels);
+    public abstract void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels);
 
     public virtual void DrawProperties()
     {

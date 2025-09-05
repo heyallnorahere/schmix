@@ -2,7 +2,7 @@ namespace Schmix.UI;
 
 using Schmix.Audio;
 
-public sealed class Cable : IAudioInput, IAudioOutput
+public sealed class Cable : ISignalInput, ISignalOutput
 {
     public readonly struct Endpoint
     {
@@ -49,7 +49,7 @@ public sealed class Cable : IAudioInput, IAudioOutput
         mSignal = null;
     }
     
-    public void PutAudio(StereoSignal<double> signal)
+    public void PutSignal(StereoSignal<double> signal)
     {
         if (mSignal is null)
         {
