@@ -17,3 +17,6 @@
 	path = vendor/ImGui.NET
 	url = https://github.com/heyallnorahere/ImGui.NET.git
     branch = schmix
+[submodule "vendor/libremidi"]
+	path = vendor/libremidi
+	url = https://github.com/celtera/libremidi.git

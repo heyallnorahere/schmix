@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 add_subdirectory("Coral")
+add_subdirectory("libremidi")
 
 find_package(SDL3 REQUIRED)
 

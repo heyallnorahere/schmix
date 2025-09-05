@@ -4,6 +4,8 @@
 #include "schmix/script/Bindings.h"
 #include "schmix/script/Plugin.h"
 
+#include "schmix/audio/MIDI.h"
+
 namespace schmix {
     static Application* s_App;
 
@@ -41,6 +43,7 @@ namespace schmix {
         m_Window.Reset();
 
         SDL_Quit();
+        MIDI::Shutdown();
 
         if (m_OwnsLogger) {
             ResetLogger();
@@ -82,6 +85,8 @@ namespace schmix {
         SCHMIX_INFO("Resource directory: {}", m_ResourceDirectory.string().c_str());
 
         SCHMIX_INFO("Initializing...");
+
+        MIDI::Init();
 
         if (!CreateWindow() || !InitImGui() || !InitRuntime()) {
             SCHMIX_ERROR("Initialization failed! Exiting 1...");
@@ -167,6 +172,8 @@ namespace schmix {
             if (m_Window->IsCloseRequested()) {
                 m_Running = false;
             }
+
+            MIDI::Update();
 
             m_ManagedType->InvokeStaticMethod("Update", (double)0);
         }
