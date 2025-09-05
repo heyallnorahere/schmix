@@ -6,9 +6,9 @@ using Schmix.Core;
 
 using System;
 
-public sealed class WindowAudioOutput : RefCounted, IAudioOutput
+public sealed class OutputDevice : RefCounted
 {
-    public static unsafe uint DefaultDeviceID => GetDefaultDeviceID_Impl();
+    public static unsafe uint Default => GetDefault_Impl();
 
     internal static unsafe void* CreateOutput(uint deviceID, int sampleRate, int channels)
     {
@@ -23,50 +23,21 @@ public sealed class WindowAudioOutput : RefCounted, IAudioOutput
         return address;
     }
 
-    public unsafe WindowAudioOutput(uint deviceID, int sampleRate, int channels) : base(CreateOutput(deviceID, sampleRate, channels))
+    public unsafe OutputDevice(uint deviceID, int sampleRate, int channels) : base(CreateOutput(deviceID, sampleRate, channels))
     {
-        ResetSignal();
     }
 
-    public void ResetSignal()
+    public bool PutAudio(StereoSignal<double> signal)
     {
-        mSignal = null;
-    }
-
-    public void PutAudio(StereoSignal<double> signal)
-    {
-        if (signal.Channels != Channels)
-        {
-            throw new ArgumentException("Invalid signal channel count!");
-        }
-
-        if (mSignal is null)
-        {
-            mSignal = signal.Copy();
-        }
-        else
-        {
-            mSignal += signal;
-        }
-    }
-
-    public bool Flush()
-    {
-        if (mSignal is null)
-        {
-            return true;
-        }
-
-        double[] interleaved = mSignal.AsInterleaved();
+        double[] interleaved = signal.AsInterleaved();
         using var nativeInterleaved = new NativeArray<double>(interleaved);
 
         bool success;
         unsafe
         {
-            success = PutAudio_Impl(mAddress, mSignal.Length, nativeInterleaved);
+            success = PutAudio_Impl(mAddress, signal.Length, nativeInterleaved);
         }
 
-        ResetSignal();
         return success;
     }
 
@@ -75,9 +46,7 @@ public sealed class WindowAudioOutput : RefCounted, IAudioOutput
     public unsafe int SampleRate => GetSampleRate_Impl(mAddress);
     public unsafe int Channels => GetChannels_Impl(mAddress);
 
-    private StereoSignal<double>? mSignal;
-
-    internal static unsafe delegate*<uint> GetDefaultDeviceID_Impl = null;
+    internal static unsafe delegate*<uint> GetDefault_Impl = null;
     internal static unsafe delegate*<uint, int, int, void*> ctor_Impl = null;
 
     internal static unsafe delegate*<void*, int> GetQueuedSamples_Impl = null;

@@ -3,8 +3,7 @@
 
 #include "schmix/core/Ref.h"
 
-#include "schmix/audio/Mixer.h"
-#include "schmix/audio/WindowAudioOutput.h"
+#include "schmix/audio/OutputDevice.h"
 
 #include "schmix/ui/Application.h"
 #include "schmix/ui/ImGuiInstance.h"
@@ -30,35 +29,14 @@ namespace schmix {
         g_Logger->log(loc, level, msg.Data());
     }
 
-    static void Mixer_AddSignalToChannel_Impl(Mixer* mixer, std::uint32_t channel,
-                                              std::int32_t audioChannels, std::int32_t length,
-                                              Coral::Array<double> interleaved) {
-        auto signal =
-            StereoSignal<double>::FromInterleaved(audioChannels, length, interleaved.Data());
-
-        mixer->AddSignalToChannel(channel, signal);
+    static std::uint32_t OutputDevice_GetDefault_Impl() {
+        return OutputDevice::GetDefaultDeviceID();
     }
 
-    static std::int32_t Mixer_GetChunkSize_Impl(Mixer* mixer) {
-        return (std::int32_t)mixer->GetChunkSize();
-    }
-
-    static std::int32_t Mixer_GetSampleRate_Impl(Mixer* mixer) {
-        return (std::int32_t)mixer->GetSampleRate();
-    }
-
-    static std::int32_t Mixer_GetAudioChannels_Impl(Mixer* mixer) {
-        return (std::int32_t)mixer->GetAudioChannels();
-    }
-
-    static std::uint32_t WindowAudioOutput_GetDefaultDeviceID_Impl() {
-        return WindowAudioOutput::GetDefaultDeviceID();
-    }
-
-    static WindowAudioOutput* WindowAudioOutput_ctor_Impl(std::uint32_t deviceID,
+    static OutputDevice* OutputDevice_ctor_Impl(std::uint32_t deviceID,
                                                           std::int32_t sampleRate,
                                                           std::int32_t channels) {
-        auto output = new WindowAudioOutput(deviceID, sampleRate, channels);
+        auto output = new OutputDevice(deviceID, sampleRate, channels);
         if (!output->IsInitialized()) {
             delete output;
             output = nullptr;
@@ -67,19 +45,19 @@ namespace schmix {
         return output;
     }
 
-    static std::int32_t WindowAudioOutput_GetQueuedSamples_Impl(WindowAudioOutput* output) {
+    static std::int32_t OutputDevice_GetQueuedSamples_Impl(OutputDevice* output) {
         return output->GetQueuedSamples();
     }
 
-    static std::int32_t WindowAudioOutput_GetSampleRate_Impl(WindowAudioOutput* output) {
+    static std::int32_t OutputDevice_GetSampleRate_Impl(OutputDevice* output) {
         return output->GetSampleRate();
     }
 
-    static std::int32_t WindowAudioOutput_GetChannels_Impl(WindowAudioOutput* output) {
+    static std::int32_t OutputDevice_GetChannels_Impl(OutputDevice* output) {
         return output->GetChannels();
     }
 
-    static Coral::Bool32 WindowAudioOutput_PutAudio_Impl(WindowAudioOutput* output,
+    static Coral::Bool32 OutputDevice_PutAudio_Impl(OutputDevice* output,
                                                          std::int32_t length,
                                                          Coral::Array<double> interleaved) {
         auto signal = StereoSignal<double>::FromInterleaved(output->GetChannels(), length,
@@ -135,25 +113,18 @@ namespace schmix {
 
                 { "Schmix.Core.Log", "Print_Impl", (void*)Log_Print_Impl },
 
-                { "Schmix.Audio.Mixer", "AddSignalToChannel_Impl",
-                  (void*)Mixer_AddSignalToChannel_Impl },
-                { "Schmix.Audio.Mixer", "GetChunkSize_Impl", (void*)Mixer_GetChunkSize_Impl },
-                { "Schmix.Audio.Mixer", "GetSampleRate_Impl", (void*)Mixer_GetSampleRate_Impl },
-                { "Schmix.Audio.Mixer", "GetAudioChannels_Impl",
-                  (void*)Mixer_GetAudioChannels_Impl },
-
-                { "Schmix.Audio.WindowAudioOutput", "GetDefaultDeviceID_Impl",
-                  (void*)WindowAudioOutput_GetDefaultDeviceID_Impl },
-                { "Schmix.Audio.WindowAudioOutput", "ctor_Impl",
-                  (void*)WindowAudioOutput_ctor_Impl },
-                { "Schmix.Audio.WindowAudioOutput", "GetQueuedSamples_Impl",
-                  (void*)WindowAudioOutput_GetQueuedSamples_Impl },
-                { "Schmix.Audio.WindowAudioOutput", "GetSampleRate_Impl",
-                  (void*)WindowAudioOutput_GetSampleRate_Impl },
-                { "Schmix.Audio.WindowAudioOutput", "GetChannels_Impl",
-                  (void*)WindowAudioOutput_GetChannels_Impl },
-                { "Schmix.Audio.WindowAudioOutput", "PutAudio_Impl",
-                  (void*)WindowAudioOutput_PutAudio_Impl },
+                { "Schmix.Audio.OutputDevice", "GetDefault_Impl",
+                  (void*)OutputDevice_GetDefault_Impl },
+                { "Schmix.Audio.OutputDevice", "ctor_Impl",
+                  (void*)OutputDevice_ctor_Impl },
+                { "Schmix.Audio.OutputDevice", "GetQueuedSamples_Impl",
+                  (void*)OutputDevice_GetQueuedSamples_Impl },
+                { "Schmix.Audio.OutputDevice", "GetSampleRate_Impl",
+                  (void*)OutputDevice_GetSampleRate_Impl },
+                { "Schmix.Audio.OutputDevice", "GetChannels_Impl",
+                  (void*)OutputDevice_GetChannels_Impl },
+                { "Schmix.Audio.OutputDevice", "PutAudio_Impl",
+                  (void*)OutputDevice_PutAudio_Impl },
 
                 { "Schmix.UI.Application", "IsRunning_Impl", (void*)Application_IsRunning_Impl },
                 { "Schmix.UI.Application", "Quit_Impl", (void*)Application_Quit_Impl },

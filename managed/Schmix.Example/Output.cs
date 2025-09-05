@@ -1,8 +1,8 @@
 using Schmix.Audio;
-using Schmix.Core;
 using Schmix.Extension;
 using Schmix.UI;
 
+using System;
 using System.Collections.Generic;
 
 namespace Schmix.Example
@@ -11,8 +11,8 @@ namespace Schmix.Example
     {
         public OutputModule()
         {
-            uint id = WindowAudioOutput.DefaultDeviceID;
-            mOutput = new WindowAudioOutput(id, Rack.SampleRate, Rack.Channels);
+            uint id = OutputDevice.Default;
+            mOutput = new OutputDevice(id, Rack.SampleRate, Rack.Channels);
         }
 
         protected override void Cleanup(bool disposed)
@@ -43,6 +43,8 @@ namespace Schmix.Example
 
         public override int InputCount => 1;
 
+        public override string Name => "Output device";
+
         public override string GetInputName(int index) => index > 0 ? "<unused>" : "Audio";
 
         public override void Process(IReadOnlyList<IAudioInput?> inputs, IReadOnlyList<IAudioOutput?> outputs, int sampleRate, int samplesRequested, int channels)
@@ -50,15 +52,18 @@ namespace Schmix.Example
             var audioInput = inputs[0];
             var audio = audioInput?.Signal;
 
-            if (audio is not null)
+            if (audio is null)
             {
-                mOutput.ResetSignal();
-                mOutput.PutAudio(audio);
-                mOutput.Flush();
+                return;
+            }
+
+            if (!mOutput.PutAudio(audio))
+            {
+                throw new InvalidOperationException("Failed to send audio to output device!");
             }
         }
 
-        private WindowAudioOutput mOutput;
+        private OutputDevice mOutput;
     }
 
     [RegisteredPlugin("Output")]
