@@ -5,13 +5,12 @@ using Coral.Managed.Interop;
 using ImGuiNET;
 
 using Schmix.Core;
-using Schmix.Extension;
 
 using System.Numerics;
 
 public static class Application
 {
-    private static bool sShowDemo = true;
+    private static bool sShowDemo = false;
     private static bool sShowDockspace = true;
     private static bool sShowRack = true;
 
