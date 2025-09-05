@@ -27,16 +27,24 @@ internal sealed class OscillatorModule : Module
         {
             mBaseFrequency = baseFrequency;
         }
+
+        float baseGain = (float)mBaseGain;
+        ImGui.SetNextItemWidth(width);
+
+        if (ImGui.DragFloat("Base gain", ref baseGain, 0.1f))
+        {
+            mBaseGain = baseGain;
+        }
     }
 
-    public const int GateInput = 0;
+    public const int GainInput = 0;
     public const int CVInput = 1;
 
     public const int SineOutput = 0;
 
     public override string GetInputName(int index) => index switch
     {
-        GateInput => "Gate",
+        GainInput => "Gain",
         CVInput => "CV",
         _ => "<unused>"
     };
@@ -78,7 +86,8 @@ internal sealed class OscillatorModule : Module
 
     public OscillatorModule()
     {
-        mBaseFrequency = 440;
+        mBaseFrequency = 261.63; // C4; middle C
+        mBaseGain = 1;
 
         mPhases = new double[sWaves.Count][];
         Array.Fill(mPhases, Array.Empty<double>());
@@ -86,7 +95,7 @@ internal sealed class OscillatorModule : Module
 
     public override void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels)
     {
-        var gateInput = inputs[GateInput];
+        var gainInput = inputs[GainInput];
         var cvInput = inputs[CVInput];
 
         // generate signal of coefficients over time to modify the frequency
@@ -100,7 +109,7 @@ internal sealed class OscillatorModule : Module
             frequencyCoefficients = CVToPower(cvSignal, 2);
         }
 
-        var gateSignal = gateInput?.Signal;
+        var gainSignal = gainInput?.Signal;
         for (int i = 0; i < outputs.Count; i++)
         {
             var currentOutput = outputs[i];
@@ -125,29 +134,25 @@ internal sealed class OscillatorModule : Module
 
                 for (int k = 0; k < samplesRequested; k++)
                 {
-                    double gate = 1;
-                    if (gateSignal is not null)
+                    double gain = mBaseGain;
+                    if (gainSignal is not null)
                     {
-                        gate = gateSignal[j][k];
+                        gain *= gainSignal[j][k];
                     }
 
-                    double sample = 0;
-                    if (gate > 0.1)
+                    double sampleFrequency = mBaseFrequency;
+                    if (frequencyCoefficients is not null)
                     {
-                        double sampleFrequency = mBaseFrequency;
-                        if (frequencyCoefficients is not null)
-                        {
-                            sampleFrequency *= frequencyCoefficients[j][k];
-                        }
-
-                        var waveform = sWaves[i];
-                        double phaseCoefficient = waveform.GetPhaseCoefficient(sampleFrequency);
-
-                        sample = waveform.Calculate(phase);
-                        phase += phaseCoefficient / (double)sampleRate;
+                        sampleFrequency *= frequencyCoefficients[j][k];
                     }
 
-                    signal[j][k] = sample;
+                    var waveform = sWaves[i];
+                    double phaseCoefficient = waveform.GetPhaseCoefficient(sampleFrequency);
+
+                    double sample = waveform.Calculate(phase);
+                    phase += phaseCoefficient / (double)sampleRate;
+
+                    signal[j][k] = sample * gain;
                 }
 
                 wavePhases[j] = phase;
@@ -158,6 +163,7 @@ internal sealed class OscillatorModule : Module
     }
 
     private double mBaseFrequency;
+    private double mBaseGain;
     private readonly double[][] mPhases;
 }
 
