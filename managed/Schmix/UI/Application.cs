@@ -17,30 +17,10 @@ public static class Application
 
     internal static bool Init()
     {
-        Log.Info("Initializing and populating rack...");
+        Log.Info("Initializing rack...");
 
         Rack.Channels = 2;
         Rack.SampleRate = 40960;
-
-        var pluginNames = new string[]
-        {
-            "Oscillator",
-            "Oscillator",
-            "Output",
-        };
-
-        foreach (var name in pluginNames)
-        {
-            var module = Plugin.GetByName(name)?.Instantiate();
-            if (module is not null)
-            {
-                Rack.AddModule(module);
-            }
-            else
-            {
-                Log.Warn($"Failed to instantiate plugin: {name}");
-            }
-        }
 
         return true;
     }

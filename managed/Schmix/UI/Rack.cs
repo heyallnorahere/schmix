@@ -133,14 +133,6 @@ public static class Rack
 
         var solver = new DirectedAcyclicalGraphSolver<NodeMeta>();
         sNodeUpdateOrder = solver.Solve(sNodes.Values).Select(meta => meta.Instance.ID);
-
-        var msg = "Update order: ";
-        foreach (int id in sNodeUpdateOrder)
-        {
-            msg += $" {id}";
-        }
-
-        Log.Debug(msg);
     }
 
     public static void AddNode(Node node)
@@ -293,6 +285,8 @@ public static class Rack
 
         meta.Instance.Dispose();
         sNodes.Remove(id);
+
+        RegenerateUpdateOrder();
     }
 
     public static void Clear()
@@ -466,6 +460,7 @@ public static class Rack
         return id;
     }
 
+    private static int sContextNode = -1;
     public static void Render(ref bool show)
     {
         if (!show)
@@ -475,8 +470,69 @@ public static class Rack
 
         if (ImGui.Begin("Rack", ref show))
         {
+            int hoveredNode = 0;
+            bool nodeHovered = imnodes.IsNodeHovered(ref hoveredNode);
+
             imnodes.PushAttributeFlag(AttributeFlags.EnableLinkDetachWithDragClick);
             imnodes.BeginNodeEditor();
+
+            bool focused = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
+            bool editorHovered = imnodes.IsEditorHovered();
+            bool rightMouseClicked = ImGui.IsMouseClicked(ImGuiMouseButton.Right);
+
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.One * 8f);
+            if (focused && editorHovered && rightMouseClicked)
+            {
+                if (nodeHovered)
+                {
+                    sContextNode = hoveredNode;
+                    ImGui.OpenPopup("node-context");
+                }
+                else
+                {
+                    ImGui.OpenPopup("global-context");
+                }
+            }
+
+            if (ImGui.BeginPopup("node-context"))
+            {
+                if (ImGui.MenuItem("Remove"))
+                {
+                    RemoveNode(sContextNode);
+                }
+
+                ImGui.EndPopup();
+            }
+
+            if (ImGui.BeginPopup("global-context"))
+            {
+                if (ImGui.BeginMenu("Add"))
+                {
+                    var plugins = Plugin.Plugins;
+                    int pluginIndex = 0;
+
+                    foreach ((var name, var plugin) in plugins)
+                    {
+                        ImGui.PushID($"plugin-{pluginIndex}");
+
+                        if (ImGui.MenuItem(name))
+                        {
+                            Log.Info($"Adding module from plugin {name}");
+
+                            var module = plugin.Instantiate();
+                            Rack.AddModule(module);
+                        }
+
+                        ImGui.PopID();
+                    }
+
+                    ImGui.EndMenu();
+                }
+
+                ImGui.EndPopup();
+            }
+
+            ImGui.PopStyleVar();
 
             foreach ((int id, var meta) in sNodes)
             {

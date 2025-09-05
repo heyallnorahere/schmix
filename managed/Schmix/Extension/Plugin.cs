@@ -26,6 +26,22 @@ public abstract class Plugin : IDisposable
         sPlugins = new Dictionary<string, PluginInfo>();
     }
 
+    public static IReadOnlyDictionary<string, Plugin> Plugins
+    {
+        get
+        {
+            var plugins = new Dictionary<string, Plugin>();
+
+            foreach ((var name, var info) in sPlugins)
+            {
+                var plugin = info.Instance;
+                plugins.Add(name, plugin);
+            }
+            
+            return plugins;
+        }
+    }
+
     internal static int LoadPluginsFromAssembly_Native(int loadContext, int assemblyID)
     {
         // see managed/Coral.Managed.csproj
@@ -100,17 +116,6 @@ public abstract class Plugin : IDisposable
         }
 
         return pluginCount;
-    }
-
-    public static Plugin? GetByName(string name)
-    {
-        PluginInfo info;
-        if (sPlugins.TryGetValue(name, out info))
-        {
-            return info.Instance;
-        }
-
-        return null;
     }
 
     internal static void UnloadPlugins()
