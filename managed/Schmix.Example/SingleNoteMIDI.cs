@@ -14,7 +14,6 @@ internal sealed class SingleNoteMIDIModule : Module
         mPrevCV = mCV = 0;
         mCurrentNote = -1;
         mStart = mEnd = null;
-        mNextChunk = DateTime.Now;
 
         MIDI.OnNoteBegin += OnNoteBegin;
         MIDI.OnNoteEnd += OnNoteEnd;
@@ -140,14 +139,11 @@ internal sealed class SingleNoteMIDIModule : Module
 
         outputs[GateOutput]?.PutSignal(gateSignal);
         outputs[CVOutput]?.PutSignal(cvSignal);
-
-        mNextChunk = DateTime.Now;
     }
 
     private double mPrevCV, mCV;
     private int mCurrentNote;
     private DateTime? mStart, mEnd;
-    private DateTime mNextChunk;
 }
 
 [RegisteredPlugin("Single note MIDI")]
