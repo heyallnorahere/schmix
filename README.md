@@ -9,6 +9,7 @@ Only tested on my Arch development machine. No guarantee it'll work in your envi
 Required packages:
 - SDL3 libraries and headers
 - spdlog libraries and headers
+- LuaJIT on your path (`luajit` command)
 - .NET 8 runtime
 
 ```bash
