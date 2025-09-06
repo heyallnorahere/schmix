@@ -109,5 +109,21 @@ public sealed class MonoSignal<T> where T : unmanaged, INumber<T>
         return result;
     }
 
+    public MonoSignal<T> Exp(double expBase)
+    {
+        int length = mData.Length;
+        var result = new MonoSignal<T>(length);
+
+        for (int i = 0; i < length; i++)
+        {
+            double exponent = Convert.ToDouble(mData[i]);
+            double sample = Math.Pow(expBase, exponent);
+
+            result[i] = (T)Convert.ChangeType(sample, typeof(T));
+        }
+
+        return result;
+    }
+
     private T[] mData;
 }

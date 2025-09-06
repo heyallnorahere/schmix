@@ -42,7 +42,7 @@ internal sealed class EnvelopeModule : Module
     public override int OutputCount => 1;
 
     public override string GetInputName(int index) => index > 0 ? "<unused>" : "Gate";
-    public override string GetOutputName(int index) => index > 0 ? "<unused>" : "Gain";
+    public override string GetOutputName(int index) => index > 0 ? "<unused>" : "CV";
 
     public override string Name => "Envelope";
 
@@ -78,12 +78,12 @@ internal sealed class EnvelopeModule : Module
 
     private static double Lerp(double a, double b, double t) => (1 - t) * a + t * b;
 
-    private void ProcessChannel(MonoSignal<double>? gateSignal, MonoSignal<double> gainSignal, ref EnvelopeStatus status, DateTime chunkStart, TimeSpan sampleSpan)
+    private void ProcessChannel(MonoSignal<double>? gateSignal, MonoSignal<double> cvSignal, ref EnvelopeStatus status, DateTime chunkStart, TimeSpan sampleSpan)
     {
         bool isNoteActive = false;
         bool phaseChanged = true;
 
-        for (int i = 0; i < gainSignal.Length; i++)
+        for (int i = 0; i < cvSignal.Length; i++)
         {
             if (phaseChanged)
             {
@@ -143,7 +143,7 @@ internal sealed class EnvelopeModule : Module
             };
 
             status.Gain = gain;
-            gainSignal[i] = gain;
+            cvSignal[i] = Math.Log2(gain);
         }
     }
 
@@ -153,15 +153,15 @@ internal sealed class EnvelopeModule : Module
         var sampleSpan = TimeSpan.FromSeconds(1.0 / (double)sampleRate);
 
         var gateInput = inputs[0];
-        var gainOutput = outputs[0];
+        var cvOutput = outputs[0];
 
-        if (gainOutput is null)
+        if (cvOutput is null)
         {
             return;
         }
 
         var gateSignal = gateInput?.Signal;
-        var gainSignal = new StereoSignal<double>(channels, samplesRequested);
+        var cvSignal = new StereoSignal<double>(channels, samplesRequested);
 
         for (int i = 0; i < channels; i++)
         {
@@ -178,7 +178,7 @@ internal sealed class EnvelopeModule : Module
                 };
             }
 
-            ProcessChannel(gateSignal?[i], gainSignal[i], ref status, chunkStart, sampleSpan);
+            ProcessChannel(gateSignal?[i], cvSignal[i], ref status, chunkStart, sampleSpan);
             if (i < mStatus.Count)
             {
                 mStatus[i] = status;
@@ -189,7 +189,7 @@ internal sealed class EnvelopeModule : Module
             }
         }
 
-        gainOutput.PutSignal(gainSignal);
+        cvOutput.PutSignal(cvSignal);
     }
 
     private TimeSpan mAttack, mDecay, mRelease;

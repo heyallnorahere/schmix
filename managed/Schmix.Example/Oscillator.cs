@@ -18,36 +18,18 @@ internal sealed class OscillatorModule : Module
 
     public override void DrawProperties()
     {
-        const float width = 100f;
+        ImGui.PushItemWidth(100f);
 
         float baseFrequency = (float)mBaseFrequency;
-        ImGui.SetNextItemWidth(width);
-
         if (ImGui.DragFloat("Base frequency", ref baseFrequency))
         {
             mBaseFrequency = baseFrequency;
         }
 
-        float baseGain = (float)mBaseGain;
-        ImGui.SetNextItemWidth(width);
-
-        if (ImGui.DragFloat("Base gain", ref baseGain, 0.1f))
-        {
-            mBaseGain = baseGain;
-        }
+        ImGui.PopItemWidth();
     }
 
-    public const int GainInput = 0;
-    public const int CVInput = 1;
-
-    public const int SineOutput = 0;
-
-    public override string GetInputName(int index) => index switch
-    {
-        GainInput => "Gain",
-        CVInput => "CV",
-        _ => "<unused>"
-    };
+    public override string GetInputName(int index) => index > 0 ? "<unused>" : "CV";
 
     public override string GetOutputName(int index)
     {
@@ -61,33 +43,12 @@ internal sealed class OscillatorModule : Module
 
     public override string Name => "Oscillator";
 
-    public override int InputCount => 2;
+    public override int InputCount => 1;
     public override int OutputCount => sWaves.Count;
-
-    private static StereoSignal<double> CVToPower(StereoSignal<double> signal, double powerBase)
-    {
-        var result = new StereoSignal<double>(signal.Channels, signal.Length);
-        for (int i = 0; i < result.Channels; i++)
-        {
-            var srcChannel = signal[i];
-            var dstChannel = result[i];
-
-            for (int j = 0; j < result.Length; j++)
-            {
-                double srcSample = srcChannel[j];
-                double dstSample = Math.Pow(powerBase, srcSample);
-
-                dstChannel[j] = dstSample;
-            }
-        }
-
-        return result;
-    }
 
     public OscillatorModule()
     {
         mBaseFrequency = 261.63; // C4; middle C
-        mBaseGain = 1;
 
         mPhases = new double[sWaves.Count][];
         Array.Fill(mPhases, Array.Empty<double>());
@@ -95,8 +56,7 @@ internal sealed class OscillatorModule : Module
 
     public override void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels)
     {
-        var gainInput = inputs[GainInput];
-        var cvInput = inputs[CVInput];
+        var cvInput = inputs[0];
 
         // generate signal of coefficients over time to modify the frequency
         StereoSignal<double>? frequencyCoefficients = null;
@@ -106,10 +66,9 @@ internal sealed class OscillatorModule : Module
         {
             // using cv as volt per octave
             // octave ratio is 2:1
-            frequencyCoefficients = CVToPower(cvSignal, 2);
+            frequencyCoefficients = cvSignal.Exp(2);
         }
 
-        var gainSignal = gainInput?.Signal;
         for (int i = 0; i < outputs.Count; i++)
         {
             var currentOutput = outputs[i];
@@ -134,12 +93,6 @@ internal sealed class OscillatorModule : Module
 
                 for (int k = 0; k < samplesRequested; k++)
                 {
-                    double gain = mBaseGain;
-                    if (gainSignal is not null)
-                    {
-                        gain *= gainSignal[j][k];
-                    }
-
                     double sampleFrequency = mBaseFrequency;
                     if (frequencyCoefficients is not null)
                     {
@@ -152,7 +105,7 @@ internal sealed class OscillatorModule : Module
                     double sample = waveform.Calculate(phase);
                     phase += phaseCoefficient / (double)sampleRate;
 
-                    signal[j][k] = sample * gain;
+                    signal[j][k] = sample;
                 }
 
                 wavePhases[j] = phase;
@@ -163,7 +116,6 @@ internal sealed class OscillatorModule : Module
     }
 
     private double mBaseFrequency;
-    private double mBaseGain;
     private readonly double[][] mPhases;
 }
 

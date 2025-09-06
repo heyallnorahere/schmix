@@ -160,6 +160,19 @@ public sealed class StereoSignal<T> where T : unmanaged, INumber<T>
         return result;
     }
 
+    public StereoSignal<T> Exp(double expBase)
+    {
+        int channels = mChannels.Length;
+        var result = new StereoSignal<T>(channels, mLength);
+
+        for (int i = 0; i < channels; i++)
+        {
+            result.mChannels[i] = mChannels[i].Exp(expBase);
+        }
+
+        return result;
+    }
+
     private int mLength;
     private MonoSignal<T>[] mChannels;
 }
