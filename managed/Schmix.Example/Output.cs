@@ -8,6 +8,7 @@ using Schmix.UI;
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 internal sealed class OutputModule : Module
 {
@@ -68,7 +69,7 @@ internal sealed class OutputModule : Module
                 samples[j] = (float)(mDisplayedSignal?[i][j] ?? 0);
             }
 
-            ImGui.PlotLines($"##channel-{i}", ref samples[0], chunkSize, 0, $"Channel {i + 1}", -1f, 1f, System.Numerics.Vector2.UnitY * 80f);
+            ImGui.PlotLines($"##channel-{i}", ref samples[0], chunkSize, 0, $"Channel {i + 1}", -1f, 1f, Vector2.UnitY * 80f);
         }
 
         ImGui.PopItemWidth();
