@@ -1,5 +1,5 @@
 #include "schmixpch.h"
-#include "schmix/audio/OutputDevice.h"
+#include "schmix/audio/AudioDevice.h"
 
 #include "schmix/core/SDL.h"
 
@@ -7,11 +7,10 @@ namespace schmix {
     static std::uint32_t s_SubsystemReferences = 0;
     static constexpr SDL_InitFlags s_AudioSubsystem = SDL_INIT_AUDIO;
 
-    std::size_t OutputDevice::GetDefaultDeviceID() {
-        return SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
-    }
+    std::size_t AudioDevice::GetDefaultInputID() { return SDL_AUDIO_DEVICE_DEFAULT_RECORDING; }
+    std::size_t AudioDevice::GetDefaultOutputID() { return SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK; }
 
-    bool OutputDevice::AddSubsystemReference() {
+    bool AudioDevice::AddSubsystemReference() {
         if (s_SubsystemReferences == 0) {
             SCHMIX_DEBUG("Initializing audio SDL subsystems...");
 
@@ -25,7 +24,7 @@ namespace schmix {
         return true;
     }
 
-    void OutputDevice::RemoveSubsystemReference() {
+    void AudioDevice::RemoveSubsystemReference() {
         if (s_SubsystemReferences == 0) {
             SCHMIX_WARN("Audio SDL subsystems have no references; skipping remove");
             return;
@@ -37,8 +36,7 @@ namespace schmix {
         }
     }
 
-    OutputDevice::OutputDevice(std::size_t deviceID, std::size_t sampleRate,
-                                         std::size_t channels) {
+    AudioDevice::AudioDevice(std::size_t deviceID, std::size_t sampleRate, std::size_t channels) {
         m_DeviceID = deviceID;
 
         m_SampleRate = sampleRate;
@@ -60,7 +58,7 @@ namespace schmix {
         spec.channels = (int)channels;
         spec.freq = (int)sampleRate;
 
-        SCHMIX_DEBUG("Opening audio output stream of device with ID: {}", m_DeviceID);
+        SCHMIX_DEBUG("Opening audio stream of device with ID: {}", m_DeviceID);
 
         m_Stream = SDL_OpenAudioDeviceStream((SDL_AudioDeviceID)deviceID, &spec, nullptr, nullptr);
         if (!m_Stream) {
@@ -76,7 +74,7 @@ namespace schmix {
         m_Initialized = true;
     }
 
-    OutputDevice::~OutputDevice() {
+    AudioDevice::~AudioDevice() {
         if (m_Stream != nullptr) {
             SDL_DestroyAudioStream(m_Stream);
         }
@@ -86,7 +84,7 @@ namespace schmix {
         }
     }
 
-    bool OutputDevice::PutInterleavedAudio(const MonoSignal<float>& interleaved) {
+    bool AudioDevice::PutInterleavedAudio(const MonoSignal<float>& interleaved) {
         if (!m_Initialized) {
             SCHMIX_WARN("Audio output not initialized; skipping audio push");
             return false;
@@ -101,7 +99,7 @@ namespace schmix {
         return true;
     }
 
-    std::size_t OutputDevice::GetQueuedSamples() const {
+    std::size_t AudioDevice::GetQueuedSamples() const {
         if (!m_Initialized) {
             SCHMIX_WARN("Attempted to query stream queue on uninitialized output; returning 0");
             return 0;

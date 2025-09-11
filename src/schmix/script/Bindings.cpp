@@ -3,7 +3,7 @@
 
 #include "schmix/core/Ref.h"
 
-#include "schmix/audio/OutputDevice.h"
+#include "schmix/audio/AudioDevice.h"
 
 #include "schmix/ui/Application.h"
 #include "schmix/ui/ImGuiInstance.h"
@@ -30,13 +30,13 @@ namespace schmix {
     }
 
     static std::uint32_t OutputDevice_GetDefault_Impl() {
-        return OutputDevice::GetDefaultDeviceID();
+        return AudioDevice::GetDefaultDeviceID();
     }
 
-    static OutputDevice* OutputDevice_ctor_Impl(std::uint32_t deviceID,
+    static AudioDevice* OutputDevice_ctor_Impl(std::uint32_t deviceID,
                                                           std::int32_t sampleRate,
                                                           std::int32_t channels) {
-        auto output = new OutputDevice(deviceID, sampleRate, channels);
+        auto output = new AudioDevice(deviceID, sampleRate, channels);
         if (!output->IsInitialized()) {
             delete output;
             output = nullptr;
@@ -45,19 +45,19 @@ namespace schmix {
         return output;
     }
 
-    static std::int32_t OutputDevice_GetQueuedSamples_Impl(OutputDevice* output) {
+    static std::int32_t OutputDevice_GetQueuedSamples_Impl(AudioDevice* output) {
         return output->GetQueuedSamples();
     }
 
-    static std::int32_t OutputDevice_GetSampleRate_Impl(OutputDevice* output) {
+    static std::int32_t OutputDevice_GetSampleRate_Impl(AudioDevice* output) {
         return output->GetSampleRate();
     }
 
-    static std::int32_t OutputDevice_GetChannels_Impl(OutputDevice* output) {
+    static std::int32_t OutputDevice_GetChannels_Impl(AudioDevice* output) {
         return output->GetChannels();
     }
 
-    static Coral::Bool32 OutputDevice_PutAudio_Impl(OutputDevice* output,
+    static Coral::Bool32 OutputDevice_PutAudio_Impl(AudioDevice* output,
                                                          std::int32_t length,
                                                          Coral::Array<double> interleaved) {
         auto signal = StereoSignal<double>::FromInterleaved(output->GetChannels(), length,
