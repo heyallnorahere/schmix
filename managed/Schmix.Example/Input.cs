@@ -21,7 +21,7 @@ internal sealed class InputModule : Module
     {
         if (disposed)
         {
-            mInput?.Dispose();
+            mInput.Dispose();
         }
     }
 

@@ -39,7 +39,7 @@ internal sealed class OutputModule : Module
             int queued = mOutput.QueuedSamples;
             int chunkSize = ChunkSize;
 
-            return queued < chunkSize * 2 ? chunkSize : 0;
+            return queued < chunkSize ? chunkSize : 0;
         }
     }
 
