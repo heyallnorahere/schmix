@@ -5,7 +5,7 @@
 #include "schmix/script/Plugin.h"
 
 namespace schmix {
-    static Application* s_App;
+    static Application* s_App = nullptr;
 
     int Application::Run(int argc, const char** argv) {
         if (s_App != nullptr) {
@@ -21,10 +21,9 @@ namespace schmix {
         s_App = &app;
 
         app.Loop();
-        int status = s_App->m_Status;
 
         s_App = nullptr;
-        return status;
+        return app.m_Status;
     }
 
     Application& Application::Get() { return *s_App; }
