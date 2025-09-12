@@ -7,6 +7,14 @@ namespace schmix {
     static std::uint32_t s_SubsystemReferences = 0;
     static constexpr SDL_InitFlags s_AudioSubsystem = SDL_INIT_AUDIO;
 
+    std::size_t AudioDevice::GetDummyID() {
+        // in SDL_GetAudioRecordingDevices, ids are returned in a 0-terminated array
+        // i havent looked through SDL source but i think its a safe assumption that 0 is invalid
+        // https://wiki.libsdl.org/SDL3/SDL_GetAudioRecordingDevices
+
+        return 0;
+    }
+
     std::size_t AudioDevice::GetDefaultInputID() { return SDL_AUDIO_DEVICE_DEFAULT_RECORDING; }
     std::size_t AudioDevice::GetDefaultOutputID() { return SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK; }
 
@@ -125,22 +133,25 @@ namespace schmix {
 
         m_HoldsReference = true;
 
-        SDL_AudioSpec spec;
-        spec.format = SDL_AUDIO_F32;
-        spec.channels = (int)channels;
-        spec.freq = (int)sampleRate;
+        if (m_DeviceID != GetDummyID()) {
+            SDL_AudioSpec spec;
+            spec.format = SDL_AUDIO_F32;
+            spec.channels = (int)channels;
+            spec.freq = (int)sampleRate;
 
-        SCHMIX_DEBUG("Opening audio stream of device with ID: {}", m_DeviceID);
+            SCHMIX_DEBUG("Opening audio stream of device with ID: {}", m_DeviceID);
 
-        m_Stream = SDL_OpenAudioDeviceStream((SDL_AudioDeviceID)deviceID, &spec, nullptr, nullptr);
-        if (!m_Stream) {
-            SCHMIX_ERROR("Failed to open audio stream!");
-            return;
-        }
+            m_Stream =
+                SDL_OpenAudioDeviceStream((SDL_AudioDeviceID)deviceID, &spec, nullptr, nullptr);
+            if (!m_Stream) {
+                SCHMIX_ERROR("Failed to open audio stream!");
+                return;
+            }
 
-        if (!SDL_ResumeAudioStreamDevice(m_Stream)) {
-            SCHMIX_ERROR("Failed to resume audio device!");
-            return;
+            if (!SDL_ResumeAudioStreamDevice(m_Stream)) {
+                SCHMIX_ERROR("Failed to resume audio device!");
+                return;
+            }
         }
 
         m_Initialized = true;
@@ -159,8 +170,14 @@ namespace schmix {
     std::optional<std::size_t> AudioDevice::GetInterleavedAudio(float* samples,
                                                                 std::size_t countRequested) {
         if (!m_Initialized) {
-            SCHMIX_WARN("Audio output not initialized; skipping audio push");
+            SCHMIX_WARN("Audio input not initialized; skipping audio push");
             return {};
+        }
+
+        if (m_Stream == nullptr) {
+            // dummy
+            Memory::Fill(samples, 0, countRequested * m_Channels * sizeof(float));
+            return countRequested;
         }
 
         std::size_t offset = 0;
@@ -189,6 +206,11 @@ namespace schmix {
             return false;
         }
 
+        if (m_Stream == nullptr) {
+            // dummy
+            return true;
+        }
+
         if (!SDL_PutAudioStreamData(m_Stream, samples, count * m_Channels * sizeof(float))) {
             SCHMIX_ERROR("Failed to push audio: {}", SDL_GetError());
             return false;
@@ -197,11 +219,28 @@ namespace schmix {
         return true;
     }
 
-    bool AudioDevice::Flush() { return SDL_FlushAudioStream(m_Stream); }
+    bool AudioDevice::Flush() {
+        if (!m_Initialized) {
+            SCHMIX_WARN("Attempted to flush uninitialized stream");
+            return false;
+        }
+
+        if (m_Stream == nullptr) {
+            // dummy
+            return true;
+        }
+
+        return SDL_FlushAudioStream(m_Stream);
+    }
 
     std::size_t AudioDevice::GetAvailableSamples() const {
         if (!m_Initialized) {
-            SCHMIX_WARN("Attempted to query stream queue on uninitialized output; returning 0");
+            SCHMIX_WARN("Attempted to query available samples on uninitialized input; returning 0");
+            return 0;
+        }
+
+        if (m_Stream == nullptr) {
+            // dummy
             return 0;
         }
 
@@ -212,6 +251,11 @@ namespace schmix {
     std::size_t AudioDevice::GetQueuedSamples() const {
         if (!m_Initialized) {
             SCHMIX_WARN("Attempted to query stream queue on uninitialized output; returning 0");
+            return 0;
+        }
+
+        if (m_Stream == nullptr) {
+            // dummy
             return 0;
         }
 

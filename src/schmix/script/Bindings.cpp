@@ -29,6 +29,10 @@ namespace schmix {
         g_Logger->log(loc, level, msg.Data());
     }
 
+    static std::uint32_t AudioDevice_GetDummy_Impl() {
+        return AudioDevice::GetDummyID();
+    }
+
     static std::uint32_t AudioDevice_GetDefaultInput_Impl() {
         return AudioDevice::GetDefaultInputID();
     }
@@ -191,8 +195,10 @@ namespace schmix {
 
                 { "Schmix.Core.Log", "Print_Impl", (void*)Log_Print_Impl },
 
+                { "Schmix.Audio.AudioDevice", "GetDummy_Impl",
+                  (void*)AudioDevice_GetDummy_Impl },
                 { "Schmix.Audio.AudioDevice", "GetDefaultInput_Impl",
-                  (void*)AudioDevice_GetDefaultOutput_Impl },
+                  (void*)AudioDevice_GetDefaultInput_Impl },
                 { "Schmix.Audio.AudioDevice", "GetDefaultOutput_Impl",
                   (void*)AudioDevice_GetDefaultOutput_Impl },
                 { "Schmix.Audio.AudioDevice", "GetInputDevices_Impl",

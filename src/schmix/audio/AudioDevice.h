@@ -28,6 +28,7 @@ namespace schmix {
             }
         }
 
+        static std::size_t GetDummyID();
         static std::size_t GetDefaultInputID();
         static std::size_t GetDefaultOutputID();
 

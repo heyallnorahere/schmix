@@ -9,6 +9,7 @@ using System.Collections.Generic;
 
 public sealed class AudioDevice : RefCounted
 {
+    public static unsafe uint Dummy => GetDummy_Impl();
     public static unsafe uint DefaultInput => GetDefaultInput_Impl();
     public static unsafe uint DefaultOutput => GetDefaultOutput_Impl();
 
@@ -107,6 +108,7 @@ public sealed class AudioDevice : RefCounted
     public unsafe int SampleRate => GetSampleRate_Impl(mAddress);
     public unsafe int Channels => GetChannels_Impl(mAddress);
 
+    internal static unsafe delegate*<uint> GetDummy_Impl = null;
     internal static unsafe delegate*<uint> GetDefaultInput_Impl = null;
     internal static unsafe delegate*<uint> GetDefaultOutput_Impl = null;
 

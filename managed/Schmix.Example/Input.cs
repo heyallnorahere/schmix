@@ -5,6 +5,7 @@ using ImGuiNET;
 using Schmix.Audio;
 using Schmix.Core;
 using Schmix.Extension;
+using Schmix.UI;
 
 using System.Collections.Generic;
 
@@ -12,8 +13,8 @@ internal sealed class InputModule : Module
 {
     public InputModule()
     {
-        mInput = null;
-        mSelectedID = null;
+        mSelectedID = AudioDevice.Dummy;
+        mInput = new AudioDevice(mSelectedID, Rack.SampleRate, Rack.Channels);
     }
 
     protected override void Cleanup(bool disposed)
@@ -33,7 +34,7 @@ internal sealed class InputModule : Module
     public override void DrawProperties()
     {
         var inputDevices = AudioDevice.InputDevices;
-        var currentName = mSelectedID is null ? "--Select--" : inputDevices[mSelectedID.Value];
+        var currentName = mSelectedID == AudioDevice.Dummy ? "--Select--" : inputDevices[mSelectedID];
 
         ImGui.SetNextItemWidth(100f);
         if (!ImGui.BeginCombo("Device", currentName))
@@ -60,12 +61,12 @@ internal sealed class InputModule : Module
 
     public override void Process(IReadOnlyList<ISignalInput?> inputs, IReadOnlyList<ISignalOutput?> outputs, int sampleRate, int samplesRequested, int channels)
     {
-        if (mInput?.DeviceID != mSelectedID || (mInput is not null && (mInput.SampleRate != sampleRate || mInput.Channels != channels)))
+        if (mInput.DeviceID != mSelectedID || mInput.SampleRate != sampleRate || mInput.Channels != channels)
         {
             var previousInput = mInput;
-            mInput = mSelectedID is null ? null : new AudioDevice(mSelectedID.Value, sampleRate, channels);
+            mInput = new AudioDevice(mSelectedID, sampleRate, channels);
 
-            previousInput?.Dispose();
+            previousInput.Dispose();
         }
 
         if (mInput is null)
@@ -114,8 +115,8 @@ internal sealed class InputModule : Module
         outputs[0]?.PutSignal(result);
     }
 
-    private AudioDevice? mInput;
-    private uint? mSelectedID;
+    private AudioDevice mInput;
+    private uint mSelectedID;
 }
 
 [RegisteredPlugin("Input")]
