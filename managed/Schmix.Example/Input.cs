@@ -98,8 +98,6 @@ internal sealed class InputModule : Module
             result = new StereoSignal<double>(channels, samplesRequested);
 
             int offset = samplesRequested - received.Length;
-            Log.Debug($"{received.Length} < {samplesRequested}");
-
             for (int i = 0; i < received.Length; i++)
             {
                 for (int j = 0; j < channels; j++)
