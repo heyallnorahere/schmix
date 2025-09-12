@@ -69,11 +69,6 @@ internal sealed class InputModule : Module
             previousInput.Dispose();
         }
 
-        if (mInput is null)
-        {
-            return;
-        }
-
         int available = mInput.AvailableSamples;
         if (available < samplesRequested)
         {
