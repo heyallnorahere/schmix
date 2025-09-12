@@ -30,8 +30,8 @@ namespace schmix {
     Application& Application::Get() { return *s_App; }
 
     Application::~Application() {
-        if (m_ManagedType != nullptr) {
-            m_ManagedType->InvokeStaticMethod("Shutdown");
+        if (m_Runtime.IsPresent()) {
+            m_Runtime->GetType("Schmix.UI.Application").InvokeStaticMethod("Shutdown");
         }
 
         Plugin::Cleanup();
@@ -58,7 +58,6 @@ namespace schmix {
         m_Status = 0;
 
         m_Runtime = nullptr;
-        m_ManagedType = nullptr;
 
         m_Executable = std::filesystem::absolute(arguments[0]).lexically_normal();
         auto executableDirectory = m_Executable.parent_path();
@@ -144,15 +143,7 @@ namespace schmix {
             return false;
         }
 
-        auto& appType = m_Runtime->GetCore()->GetType("Schmix.UI.Application");
-        if (!appType) {
-            SCHMIX_ERROR("Failed to find Application type!");
-            return false;
-        }
-
-        m_ManagedType = &appType;
-        m_MIDIType = &m_Runtime->GetCore()->GetType("Schmix.Audio.MIDI");
-
+        auto& appType = m_Runtime->GetType("Schmix.UI.Application");
         if (!appType.InvokeStaticMethod<bool>("Init")) {
             SCHMIX_ERROR("Failed to initialize Application in managed code!");
             return false;
@@ -184,18 +175,22 @@ namespace schmix {
 
             MIDI::Update(callbacks);
 
-            m_ManagedType->InvokeStaticMethod("Update", (double)0);
+            m_Runtime->GetType("Schmix.UI.Application").InvokeStaticMethod("Update");
         }
     }
 
     void Application::NoteBegin(const MIDI::NoteInfo& note, double velocity,
                                 std::chrono::nanoseconds timeSinceLast) {
-        m_MIDIType->InvokeStaticMethod("NoteBegin", &note, velocity, timeSinceLast.count());
+        m_Runtime->GetType("Schmix.Audio.MIDI")
+            .InvokeStaticMethod("NoteBegin", &note, velocity, timeSinceLast.count());
     }
 
     void Application::NoteEnd(const MIDI::NoteInfo& note, std::chrono::nanoseconds timeSinceLast) {
-        m_MIDIType->InvokeStaticMethod("NoteEnd", &note, timeSinceLast.count());
+        m_Runtime->GetType("Schmix.Audio.MIDI")
+            .InvokeStaticMethod("NoteEnd", &note, timeSinceLast.count());
     }
 
-    void Application::ResetTime() { m_MIDIType->InvokeStaticMethod("ResetTime"); }
+    void Application::ResetTime() {
+        m_Runtime->GetType("Schmix.Audio.MIDI").InvokeStaticMethod("ResetTime");
+    }
 } // namespace schmix

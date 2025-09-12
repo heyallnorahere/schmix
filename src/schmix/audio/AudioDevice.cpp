@@ -10,6 +10,78 @@ namespace schmix {
     std::size_t AudioDevice::GetDefaultInputID() { return SDL_AUDIO_DEVICE_DEFAULT_RECORDING; }
     std::size_t AudioDevice::GetDefaultOutputID() { return SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK; }
 
+    std::vector<std::size_t> AudioDevice::GetInputDevices() {
+        if (!AddSubsystemReference()) {
+            SCHMIX_ERROR("Failed to add ref to audio subsystem; 0 input devices found");
+            return {};
+        }
+
+        int count;
+        SDL_AudioDeviceID* ids = SDL_GetAudioRecordingDevices(&count);
+
+        if (ids == nullptr) {
+            SCHMIX_ERROR("Failed to query SDL recording devices: {}", SDL_GetError());
+
+            RemoveSubsystemReference();
+            return {};
+        }
+
+        std::vector<std::size_t> devices;
+        for (int i = 0; i < count; i++) {
+            auto id = (std::size_t)ids[i];
+            devices.push_back(id);
+        }
+
+        RemoveSubsystemReference();
+        return devices;
+    }
+
+    std::vector<std::size_t> AudioDevice::GetOutputDevices() {
+        if (!AddSubsystemReference()) {
+            SCHMIX_ERROR("Failed to add ref to audio subsystem; 0 output devices found");
+            return {};
+        }
+
+        int count;
+        SDL_AudioDeviceID* ids = SDL_GetAudioPlaybackDevices(&count);
+
+        if (ids == nullptr) {
+            SCHMIX_ERROR("Failed to query SDL playback devices: {}", SDL_GetError());
+
+            RemoveSubsystemReference();
+            return {};
+        }
+
+        std::vector<std::size_t> devices;
+        for (int i = 0; i < count; i++) {
+            auto id = (std::size_t)ids[i];
+            devices.push_back(id);
+        }
+
+        SDL_free(ids);
+        RemoveSubsystemReference();
+
+        return devices;
+    }
+
+    std::optional<std::string> AudioDevice::GetDeviceName(std::size_t id) {
+        if (!AddSubsystemReference()) {
+            SCHMIX_ERROR("Failed to add ref to audio subsystem; failed to get device name");
+            return {};
+        }
+
+        auto deviceID = (SDL_AudioDeviceID)id;
+        auto name = SDL_GetAudioDeviceName(deviceID);
+
+        RemoveSubsystemReference();
+        if (name == nullptr) {
+            SCHMIX_ERROR("Failed to retrieve device name: {}", SDL_GetError());
+            return {};
+        }
+
+        return name;
+    }
+
     bool AudioDevice::AddSubsystemReference() {
         if (s_SubsystemReferences == 0) {
             SCHMIX_DEBUG("Initializing audio SDL subsystems...");
@@ -84,19 +156,57 @@ namespace schmix {
         }
     }
 
-    bool AudioDevice::PutInterleavedAudio(const MonoSignal<float>& interleaved) {
+    std::optional<std::size_t> AudioDevice::GetInterleavedAudio(float* samples,
+                                                                std::size_t countRequested) {
+        if (!m_Initialized) {
+            SCHMIX_WARN("Audio output not initialized; skipping audio push");
+            return {};
+        }
+
+        std::size_t offset = 0;
+        while (offset < countRequested) {
+            std::size_t bytesRemaining = countRequested - offset;
+            int bytes = SDL_GetAudioStreamData(m_Stream, &samples[offset],
+                                               bytesRemaining * m_Channels * sizeof(float));
+
+            if (bytes < 0) {
+                SCHMIX_ERROR("Failed to retrieve data from SDL audio stream!");
+                return {};
+            }
+
+            offset += bytes;
+            if (bytes == 0) {
+                break;
+            }
+        }
+
+        return offset / (m_Channels * sizeof(float));
+    }
+
+    bool AudioDevice::PutInterleavedAudio(const float* samples, std::size_t count) {
         if (!m_Initialized) {
             SCHMIX_WARN("Audio output not initialized; skipping audio push");
             return false;
         }
 
-        if (!SDL_PutAudioStreamData(m_Stream, interleaved.GetData(),
-                                    interleaved.GetLength() * sizeof(float))) {
+        if (!SDL_PutAudioStreamData(m_Stream, samples, count * m_Channels * sizeof(float))) {
             SCHMIX_ERROR("Failed to push audio: {}", SDL_GetError());
             return false;
         }
 
         return true;
+    }
+
+    bool AudioDevice::Flush() { return SDL_FlushAudioStream(m_Stream); }
+
+    std::size_t AudioDevice::GetAvailableSamples() const {
+        if (!m_Initialized) {
+            SCHMIX_WARN("Attempted to query stream queue on uninitialized output; returning 0");
+            return 0;
+        }
+
+        int bytes = SDL_GetAudioStreamAvailable(m_Stream);
+        return (std::size_t)bytes / (m_Channels * sizeof(float));
     }
 
     std::size_t AudioDevice::GetQueuedSamples() const {
@@ -105,6 +215,7 @@ namespace schmix {
             return 0;
         }
 
-        return (std::size_t)SDL_GetAudioStreamQueued(m_Stream);
+        int bytes = SDL_GetAudioStreamQueued(m_Stream);
+        return (std::size_t)bytes / (m_Channels * sizeof(float));
     }
 } // namespace schmix

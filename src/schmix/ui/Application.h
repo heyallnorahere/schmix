@@ -56,8 +56,5 @@ namespace schmix {
         Ref<ImGuiInstance> m_ImGui;
 
         Ref<ScriptRuntime> m_Runtime;
-        Coral::Type* m_ManagedType;
-
-        Coral::Type* m_MIDIType;
     };
 } // namespace schmix

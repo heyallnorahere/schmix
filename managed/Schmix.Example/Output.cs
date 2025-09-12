@@ -14,8 +14,8 @@ internal sealed class OutputModule : Module
 {
     public OutputModule()
     {
-        uint id = OutputDevice.Default;
-        mOutput = new OutputDevice(id, Rack.SampleRate, Rack.Channels);
+        uint id = AudioDevice.DefaultOutput;
+        mOutput = new AudioDevice(id, Rack.SampleRate, Rack.Channels);
 
         mDisplayedSignal = null;
     }
@@ -39,12 +39,7 @@ internal sealed class OutputModule : Module
             int queued = mOutput.QueuedSamples;
             int chunkSize = ChunkSize;
 
-            if (queued < mOutput.SampleRate / 4)
-            {
-                return chunkSize;
-            }
-
-            return 0;
+            return queued < chunkSize * 2 ? chunkSize : 0;
         }
     }
 
@@ -87,7 +82,7 @@ internal sealed class OutputModule : Module
         }
     }
 
-    private OutputDevice mOutput;
+    private AudioDevice mOutput;
     private StereoSignal<double>? mDisplayedSignal;
 }
 

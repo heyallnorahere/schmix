@@ -29,42 +29,120 @@ namespace schmix {
         g_Logger->log(loc, level, msg.Data());
     }
 
-    static std::uint32_t OutputDevice_GetDefault_Impl() {
-        return AudioDevice::GetDefaultDeviceID();
+    static std::uint32_t AudioDevice_GetDefaultInput_Impl() {
+        return AudioDevice::GetDefaultInputID();
     }
 
-    static AudioDevice* OutputDevice_ctor_Impl(std::uint32_t deviceID,
-                                                          std::int32_t sampleRate,
-                                                          std::int32_t channels) {
-        auto output = new AudioDevice(deviceID, sampleRate, channels);
-        if (!output->IsInitialized()) {
-            delete output;
-            output = nullptr;
+    static std::uint32_t AudioDevice_GetDefaultOutput_Impl() {
+        return AudioDevice::GetDefaultOutputID();
+    }
+
+    static Coral::Array<std::uint32_t> AudioDevice_GetInputDevices_Impl() {
+        Coral::Array<std::uint32_t> ids;
+
+        auto devices = AudioDevice::GetInputDevices();
+        if (!devices.empty()) {
+            ids = Coral::Array<std::uint32_t>::New(devices.size());
+
+            for (std::size_t i = 0; i < devices.size(); i++) {
+                ids[i] = (std::uint32_t)devices[i];
+            }
         }
 
-        return output;
+        return ids;
     }
 
-    static std::int32_t OutputDevice_GetQueuedSamples_Impl(AudioDevice* output) {
-        return output->GetQueuedSamples();
+    static Coral::Array<std::uint32_t> AudioDevice_GetOutputDevices_Impl() {
+        Coral::Array<std::uint32_t> ids;
+
+        auto devices = AudioDevice::GetOutputDevices();
+        if (!devices.empty()) {
+            ids = Coral::Array<std::uint32_t>::New(devices.size());
+
+            for (std::size_t i = 0; i < devices.size(); i++) {
+                ids[i] = (std::uint32_t)devices[i];
+            }
+        }
+
+        return ids;
     }
 
-    static std::int32_t OutputDevice_GetSampleRate_Impl(AudioDevice* output) {
-        return output->GetSampleRate();
+    static Coral::String AudioDevice_GetDeviceName_Impl(std::uint32_t id) {
+        Coral::String result;
+
+        auto name = AudioDevice::GetDeviceName((std::size_t)id);
+        if (name.has_value()) {
+            result = Coral::String::New(name.value());
+        }
+        
+        return result;
     }
 
-    static std::int32_t OutputDevice_GetChannels_Impl(AudioDevice* output) {
-        return output->GetChannels();
+    static AudioDevice* AudioDevice_ctor_Impl(std::uint32_t deviceID, std::int32_t sampleRate,
+                                              std::int32_t channels) {
+        auto device = new AudioDevice(deviceID, sampleRate, channels);
+        if (!device->IsInitialized()) {
+            delete device;
+            device = nullptr;
+        }
+
+        return device;
     }
 
-    static Coral::Bool32 OutputDevice_PutAudio_Impl(AudioDevice* output,
-                                                         std::int32_t length,
-                                                         Coral::Array<double> interleaved) {
-        auto signal = StereoSignal<double>::FromInterleaved(output->GetChannels(), length,
-                                                            interleaved.Data());
-
-        return output->PutAudio(signal);
+    static std::uint32_t AudioDevice_GetDeviceID_Impl(AudioDevice* device) {
+        return device->GetDeviceID();
     }
+
+    static std::int32_t AudioDevice_GetAvailableSamples_Impl(AudioDevice* device) {
+        return device->GetAvailableSamples();
+    }
+
+    static std::int32_t AudioDevice_GetQueuedSamples_Impl(AudioDevice* device) {
+        return device->GetQueuedSamples();
+    }
+
+    static std::int32_t AudioDevice_GetSampleRate_Impl(AudioDevice* device) {
+        return device->GetSampleRate();
+    }
+
+    static std::int32_t AudioDevice_GetChannels_Impl(AudioDevice* device) {
+        return device->GetChannels();
+    }
+
+    static std::int32_t AudioDevice_GetAudio_Impl(AudioDevice* device, std::int32_t requested,
+                                                  Coral::Array<double> interleaved) {
+        std::size_t channels = device->GetChannels();
+        std::size_t totalSamples = (std::size_t)requested * channels;
+
+        float src[totalSamples];
+        auto result = device->GetInterleavedAudio(src, requested);
+
+        if (!result.has_value()) {
+            return -1;
+        }
+
+        std::size_t sampleCount = result.value();
+        for (std::size_t i = 0; i < sampleCount * channels; i++) {
+            interleaved[i] = (double)src[i];
+        }
+
+        return (std::int32_t)sampleCount;
+    }
+
+    static Coral::Bool32 AudioDevice_PutAudio_Impl(AudioDevice* device, std::int32_t length,
+                                                   Coral::Array<double> interleaved) {
+        std::size_t channels = device->GetChannels();
+        std::size_t totalSamples = (std::size_t)length * channels;
+
+        float result[totalSamples];
+        for (std::size_t i = 0; i < totalSamples; i++) {
+            result[i] = (float)interleaved[i];
+        }
+
+        return device->PutInterleavedAudio(result, length);
+    }
+
+    static Coral::Bool32 AudioDevice_Flush_Impl(AudioDevice* device) { return device->Flush(); }
 
     static Coral::Bool32 Application_IsRunning_Impl() {
         auto& app = Application::Get();
@@ -113,18 +191,30 @@ namespace schmix {
 
                 { "Schmix.Core.Log", "Print_Impl", (void*)Log_Print_Impl },
 
-                { "Schmix.Audio.OutputDevice", "GetDefault_Impl",
-                  (void*)OutputDevice_GetDefault_Impl },
-                { "Schmix.Audio.OutputDevice", "ctor_Impl",
-                  (void*)OutputDevice_ctor_Impl },
-                { "Schmix.Audio.OutputDevice", "GetQueuedSamples_Impl",
-                  (void*)OutputDevice_GetQueuedSamples_Impl },
-                { "Schmix.Audio.OutputDevice", "GetSampleRate_Impl",
-                  (void*)OutputDevice_GetSampleRate_Impl },
-                { "Schmix.Audio.OutputDevice", "GetChannels_Impl",
-                  (void*)OutputDevice_GetChannels_Impl },
-                { "Schmix.Audio.OutputDevice", "PutAudio_Impl",
-                  (void*)OutputDevice_PutAudio_Impl },
+                { "Schmix.Audio.AudioDevice", "GetDefaultInput_Impl",
+                  (void*)AudioDevice_GetDefaultOutput_Impl },
+                { "Schmix.Audio.AudioDevice", "GetDefaultOutput_Impl",
+                  (void*)AudioDevice_GetDefaultOutput_Impl },
+                { "Schmix.Audio.AudioDevice", "GetInputDevices_Impl",
+                  (void*)AudioDevice_GetInputDevices_Impl },
+                { "Schmix.Audio.AudioDevice", "GetOutputDevices_Impl",
+                  (void*)AudioDevice_GetOutputDevices_Impl },
+                { "Schmix.Audio.AudioDevice", "GetDeviceName_Impl",
+                  (void*)AudioDevice_GetDeviceName_Impl },
+                { "Schmix.Audio.AudioDevice", "ctor_Impl", (void*)AudioDevice_ctor_Impl },
+                { "Schmix.Audio.AudioDevice", "GetDeviceID_Impl",
+                  (void*)AudioDevice_GetDeviceID_Impl },
+                { "Schmix.Audio.AudioDevice", "GetAvailableSamples_Impl",
+                  (void*)AudioDevice_GetAvailableSamples_Impl },
+                { "Schmix.Audio.AudioDevice", "GetQueuedSamples_Impl",
+                  (void*)AudioDevice_GetQueuedSamples_Impl },
+                { "Schmix.Audio.AudioDevice", "GetSampleRate_Impl",
+                  (void*)AudioDevice_GetSampleRate_Impl },
+                { "Schmix.Audio.AudioDevice", "GetChannels_Impl",
+                  (void*)AudioDevice_GetChannels_Impl },
+                { "Schmix.Audio.AudioDevice", "GetAudio_Impl", (void*)AudioDevice_GetAudio_Impl },
+                { "Schmix.Audio.AudioDevice", "PutAudio_Impl", (void*)AudioDevice_PutAudio_Impl },
+                { "Schmix.Audio.AudioDevice", "Flush_Impl", (void*)AudioDevice_Flush_Impl },
 
                 { "Schmix.UI.Application", "IsRunning_Impl", (void*)Application_IsRunning_Impl },
                 { "Schmix.UI.Application", "Quit_Impl", (void*)Application_Quit_Impl },

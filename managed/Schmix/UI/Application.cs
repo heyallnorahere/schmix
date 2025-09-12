@@ -31,7 +31,7 @@ public static class Application
         Rack.Clear();
     }
 
-    internal static void Update(double deltaTime)
+    internal static void Update()
     {
         using var instance = RefImGuiInstance();
         if (!Render(instance))
