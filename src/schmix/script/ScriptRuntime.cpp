@@ -85,6 +85,10 @@ namespace schmix {
         return true;
     }
 
+    Coral::Type& ScriptRuntime::GetType(std::string_view name) const {
+        return m_CoreAssembly->GetType(name);
+    }
+
     bool ScriptRuntime::LoadCore() {
         std::filesystem::path corePath = m_RuntimeDirectory / "Schmix.dll";
         auto& loadedAssembly = LoadAssembly(corePath);

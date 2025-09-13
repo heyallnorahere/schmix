@@ -22,8 +22,7 @@ namespace schmix {
         s_Data = std::make_unique<PluginData>();
         s_Data->Runtime = runtime;
 
-        auto core = runtime->GetCore();
-        auto& pluginType = core->GetType("Schmix.Extension.Plugin");
+        auto& pluginType = runtime->GetType("Schmix.Extension.Plugin");
 
         if (!pluginType) {
             SCHMIX_ERROR("Failed to find plugin type!");

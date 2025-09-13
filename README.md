@@ -9,7 +9,9 @@ Only tested on my Arch development machine. No guarantee it'll work in your envi
 Required packages:
 - SDL3 libraries and headers
 - spdlog libraries and headers
+- FFmpeg libraries and headers (`libavcodec` and `libavutil`)
 - LuaJIT on your path (`luajit` command)
+- `pkg-config` on your path
 - .NET 8 runtime
 
 ```bash

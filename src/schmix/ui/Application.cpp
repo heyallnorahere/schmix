@@ -4,6 +4,8 @@
 #include "schmix/script/Bindings.h"
 #include "schmix/script/Plugin.h"
 
+#include "schmix/audio/EncodingStream.h"
+
 namespace schmix {
     static Application* s_App = nullptr;
 
@@ -83,6 +85,7 @@ namespace schmix {
         SCHMIX_INFO("Initializing...");
 
         MIDI::Init();
+        EncodingStream::Init();
 
         if (!CreateWindow() || !InitImGui() || !InitRuntime()) {
             SCHMIX_ERROR("Initialization failed! Exiting 1...");

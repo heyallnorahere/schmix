@@ -30,7 +30,8 @@ namespace schmix {
         bool IsInitialized() const { return m_Initialized; }
 
         const Coral::ManagedAssembly* GetCore() const { return m_CoreAssembly; }
-        Coral::Type& GetType(std::string_view name) const { return m_CoreAssembly->GetType(name); }
+
+        Coral::Type& GetType(std::string_view name) const;
 
     private:
         bool LoadCore();
