@@ -144,7 +144,7 @@ namespace schmix {
         std::size_t bufferSize =
             av_samples_get_buffer_size(nullptr, m_Channels, length, m_Context->sample_fmt, 0);
 
-        void* frameData = Memory::Allocate(bufferSize);
+        void* frameData = Memory::Allocate(bufferSize + AV_INPUT_BUFFER_PADDING_SIZE);
         Memory::Copy(pcm, frameData, bufferSize);
 
         int ret = avcodec_fill_audio_frame(avFrame, m_Context->ch_layout.nb_channels,
@@ -184,7 +184,7 @@ namespace schmix {
             return false;
         }
 
-        void* packetData = av_malloc(dataSize);
+        void* packetData = av_malloc(dataSize + AV_INPUT_BUFFER_PADDING_SIZE);
         Memory::Copy(data, packetData, dataSize);
 
         auto avPacket = av_packet_alloc();
