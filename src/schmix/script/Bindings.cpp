@@ -4,12 +4,15 @@
 #include "schmix/core/Ref.h"
 
 #include "schmix/audio/AudioDevice.h"
-#include "schmix/audio/EncodingStream.h"
+
+#include "schmix/encoding/FormatStream.h"
+#include "schmix/encoding/CodecStream.h"
 
 #include "schmix/ui/Application.h"
 #include "schmix/ui/ImGuiInstance.h"
 
 #include <Coral/Array.hpp>
+#include <Coral/Memory.hpp>
 
 namespace schmix {
     static void RefCounted_AddRef_Impl(RefCounted* object) {
@@ -29,6 +32,9 @@ namespace schmix {
 
         g_Logger->log(loc, level, msg.Data());
     }
+
+    static void* Memory_Allocate_Impl(std::size_t size) { return Memory::Allocate(size); }
+    static void Memory_Free_Impl(void* block) { Memory::Free(block); }
 
     static std::uint32_t AudioDevice_GetDummy_Impl() { return AudioDevice::GetDummyID(); }
 
@@ -185,15 +191,54 @@ namespace schmix {
         return instance->RenderAndPresent();
     }
 
-    static EncodingStream* EncodingStream_ctor_Impl(EncodingStream::Codec codec,
-                                                    EncodingStream::Action action,
-                                                    std::int32_t channels, std::int32_t sampleRate,
-                                                    EncodingStream::SampleFormat sampleFormat) {
-        auto stream = new EncodingStream(codec, action, (std::size_t)channels,
-                                         (std::size_t)sampleRate, sampleFormat);
+    struct ManagedStreamCallbacks {
+        std::int32_t (*ReadPacket)(void* buffer, std::int32_t bufferSize, void* userData);
+        std::int32_t (*WritePacket)(const void* data, std::int32_t dataSize, void* userData);
+        std::int64_t (*Seek)(std::int64_t offset, std::int32_t whence, void* userData);
 
-        if (!stream->IsInitialized()) {
-            SCHMIX_ERROR("Failed to open encoding stream from managed code!");
+        void* UserData;
+    };
+
+    static IO::Callbacks FromManagedCallbacks(const ManagedStreamCallbacks* srcCallbacks) {
+        IO::Callbacks callbacks;
+        void* userData = srcCallbacks->UserData;
+
+        auto readPacket = srcCallbacks->ReadPacket;
+        if (readPacket != nullptr) {
+            callbacks.ReadPacket = [readPacket, userData](void* buffer, std::int32_t bufferSize) {
+                return readPacket(buffer, bufferSize, userData);
+            };
+        }
+
+        auto writePacket = srcCallbacks->WritePacket;
+        if (writePacket != nullptr) {
+            callbacks.WritePacket = [writePacket, userData](const void* data,
+                                                            std::size_t dataSize) {
+                return writePacket(data, dataSize, userData);
+            };
+        }
+
+        auto seek = srcCallbacks->Seek;
+        if (seek != nullptr) {
+            callbacks.Seek = [seek, userData](std::int64_t offset, std::int32_t whence) {
+                return seek(offset, whence, userData);
+            };
+        }
+
+        return callbacks;
+    }
+
+    static const AVOutputFormat* FormatStream_GuessOutputFormat_Impl(Coral::String path) {
+        return FormatStream::GuessOutputFormat(path.Data());
+    }
+
+    static FormatStream* FormatStream_ctor_Impl(const ManagedStreamCallbacks* srcCallbacks,
+                                                IO::Mode mode, const AVOutputFormat* outputFormat) {
+        auto callbacks = FromManagedCallbacks(srcCallbacks);
+        auto stream = new FormatStream(callbacks, mode, outputFormat);
+
+        if (!stream->IsOpen()) {
+            SCHMIX_ERROR("Failed to open a formatting stream from managed code!");
 
             delete stream;
             stream = nullptr;
@@ -202,92 +247,85 @@ namespace schmix {
         return stream;
     }
 
-    static void EncodingStream_Delete_Impl(EncodingStream* stream) { delete stream; }
+    static void FormatStream_Close_Impl(FormatStream* stream) { delete stream; }
 
-    static Coral::Bool32 EncodingStream_GetChunk_Impl(EncodingStream* stream,
-                                                      Coral::Array<std::uint8_t>* chunk) {
-        std::optional<void*> chunkRaw;
-        std::size_t chunkSize;
+    static IO::Mode FormatStream_GetMode_Impl(FormatStream* stream) { return stream->GetMode(); }
 
-        switch (stream->GetAction()) {
-        case EncodingStream::Action::Encoding:
-            chunkRaw = stream->GetEncodedPacket(&chunkSize);
-            break;
-        case EncodingStream::Action::Decoding:
-            chunkRaw = stream->GetDecodedFrame(nullptr, &chunkSize);
-            break;
+    static std::int32_t FormatStream_GetStreamIndex_Impl(FormatStream* stream) {
+        return stream->GetAudioStreamIndex();
+    }
+
+    static const CodecParameters* FormatStream_GetCodecParameters_Impl(FormatStream* stream) {
+        return &stream->GetCodecParameters();
+    }
+
+    static std::int32_t FormatStream_ReadPacket_Impl(FormatStream* stream, void** data) {
+        auto result = stream->ReadPacket(data);
+        if (!result.has_value()) {
+            // assume eof
+            return -1;
         }
 
-        if (!chunkRaw.has_value()) {
-            return false;
+        std::size_t bytesRead = result.value();
+        return (std::int32_t)bytesRead;
+    }
+
+    static Coral::Bool32 FormatStream_WritePacket_Impl(FormatStream* stream, const void* data,
+                                                       std::int32_t dataSize) {
+        return stream->WritePacket(data, (std::int32_t)dataSize);
+    }
+
+    static Coral::Bool32 FormatStream_Flush_Impl(FormatStream* stream) { return stream->Flush(); }
+
+    static CodecStream* CodecStream_ctor_Impl(const ManagedStreamCallbacks* srcCallbacks,
+                                              IO::Mode mode, const CodecParameters* parameters,
+                                              std::int32_t streamIndex) {
+        auto callbacks = FromManagedCallbacks(srcCallbacks);
+        auto stream = new CodecStream(callbacks, mode, *parameters, streamIndex);
+
+        if (!stream->IsOpen()) {
+            SCHMIX_ERROR("Failed to open a codec stream from managed code!");
+
+            delete stream;
+            stream = nullptr;
         }
 
-        *chunk = Coral::Array<std::uint8_t>::New(chunkSize);
-        void* chunkPtr = chunkRaw.value();
-
-        Memory::Copy(chunkPtr, chunk->Data(), chunkSize);
-        Memory::Free(chunkPtr);
-
-        return true;
+        return stream;
     }
 
-    static std::size_t GetSampleSize(EncodingStream::SampleFormat format) {
-        switch (format) {
-        case EncodingStream::SampleFormat::U8:
-            return 1;
-        case EncodingStream::SampleFormat::S16:
-            return 2;
-        case EncodingStream::SampleFormat::S32:
-            return 4;
-        case EncodingStream::SampleFormat::Float:
-            return sizeof(float);
-        case EncodingStream::SampleFormat::Double:
-            return sizeof(double);
-        default:
-            return 0;
+    static void CodecStream_Close_Impl(CodecStream* stream) { delete stream; }
+
+    static IO::Mode CodecStream_GetMode_Impl(CodecStream* stream) { return stream->GetMode(); }
+
+    static const CodecParameters* CodecStream_GetParameters_Impl(CodecStream* stream) {
+        return &stream->GetParameters();
+    }
+
+    static std::int32_t CodecStream_GetStreamIndex_Impl(CodecStream* stream) {
+        return (std::int32_t)stream->GetStreamIndex();
+    }
+
+    static std::int32_t CodecStream_GetFrameSize_Impl(CodecStream* stream) {
+        return (std::int32_t)stream->GetFrameSize();
+    }
+
+    static std::int32_t CodecStream_ReadFrame_Impl(CodecStream* stream, void** data) {
+        auto result = stream->ReadFrame(data);
+        if (!result.has_value()) {
+            // assume eof
+            return -1;
         }
+
+        std::size_t samplesRead = result.value();
+        return (std::int32_t)samplesRead;
     }
 
-    static Coral::Bool32 EncodingStream_PutChunk_Impl(EncodingStream* stream,
-                                                      Coral::Array<std::uint8_t> chunk) {
-        const void* data = chunk.Data();
-        std::size_t size = chunk.Length();
-
-        switch (stream->GetAction()) {
-        case EncodingStream::Action::Encoding: {
-            std::size_t channels = stream->GetChannels();
-            std::size_t sampleSize = GetSampleSize(stream->GetSampleFormat());
-
-            std::size_t frameLength = size / (channels * sampleSize);
-            return stream->EncodeFrame(data, frameLength);
-        }
-        case EncodingStream::Action::Decoding:
-            return stream->DecodePacket(data, size);
-        default:
-            return false;
-        }
+    static Coral::Bool32 CodecStream_WriteFrame_Impl(CodecStream* stream, const void* data,
+                                                     std::int32_t samples) {
+        return stream->WriteFrame(data, samples);
     }
 
-    static EncodingStream::Codec EncodingStream_GetCodecID_Impl(EncodingStream* stream) {
-        return stream->GetCodecID();
-    }
-
-    static EncodingStream::Action EncodingStream_GetAction_Impl(EncodingStream* stream) {
-        return stream->GetAction();
-    }
-
-    static std::int32_t EncodingStream_GetChannels_Impl(EncodingStream* stream) {
-        return (std::int32_t)stream->GetChannels();
-    }
-
-    static std::int32_t EncodingStream_GetSampleRate_Impl(EncodingStream* stream) {
-        return (std::int32_t)stream->GetSampleRate();
-    }
-
-    static EncodingStream::SampleFormat EncodingStream_GetSampleFormat_Impl(
-        EncodingStream* stream) {
-        return stream->GetSampleFormat();
-    }
+    static Coral::Bool32 CodecStream_Flush_Impl(CodecStream* stream) { return stream->Flush(); }
 
     void Bindings::Get(std::vector<ScriptBinding>& bindings) {
         bindings.insert(
@@ -297,6 +335,9 @@ namespace schmix {
                 { "Schmix.Core.RefCounted", "RemoveRef_Impl", (void*)RefCounted_RemoveRef_Impl },
 
                 { "Schmix.Core.Log", "Print_Impl", (void*)Log_Print_Impl },
+
+                { "Schmix.Core.Memory", "Allocate_Impl", (void*)Memory_Allocate_Impl },
+                { "Schmix.Core.Memory", "Free_Impl", (void*)Memory_Free_Impl },
 
                 { "Schmix.Audio.AudioDevice", "GetDummy_Impl", (void*)AudioDevice_GetDummy_Impl },
                 { "Schmix.Audio.AudioDevice", "GetDefaultInput_Impl",
@@ -339,22 +380,36 @@ namespace schmix {
                 { "Schmix.UI.ImGuiInstance", "RenderAndPresent_Impl",
                   (void*)ImGuiInstance_RenderAndPresent_Impl },
 
-                { "Schmix.Audio.EncodingStream", "ctor_Impl", (void*)EncodingStream_ctor_Impl },
-                { "Schmix.Audio.EncodingStream", "Delete_Impl", (void*)EncodingStream_Delete_Impl },
-                { "Schmix.Audio.EncodingStream", "GetChunk_Impl",
-                  (void*)EncodingStream_GetChunk_Impl },
-                { "Schmix.Audio.EncodingStream", "PutChunk_Impl",
-                  (void*)EncodingStream_PutChunk_Impl },
-                { "Schmix.Audio.EncodingStream", "GetCodecID_Impl",
-                  (void*)EncodingStream_GetCodecID_Impl },
-                { "Schmix.Audio.EncodingStream", "GetAction_Impl",
-                  (void*)EncodingStream_GetAction_Impl },
-                { "Schmix.Audio.EncodingStream", "GetChannels_Impl",
-                  (void*)EncodingStream_GetChannels_Impl },
-                { "Schmix.Audio.EncodingStream", "GetSampleRate_Impl",
-                  (void*)EncodingStream_GetSampleRate_Impl },
-                { "Schmix.Audio.EncodingStream", "GetSampleFormat_Impl",
-                  (void*)EncodingStream_GetSampleFormat_Impl },
+                { "Schmix.Encoding.FormatStream", "GuessOutputFormat_Impl",
+                  (void*)FormatStream_GuessOutputFormat_Impl },
+                { "Schmix.Encoding.FormatStream", "ctor_Impl", (void*)FormatStream_ctor_Impl },
+                { "Schmix.Encoding.FormatStream", "Close_Impl", (void*)FormatStream_Close_Impl },
+                { "Schmix.Encoding.FormatStream", "GetMode_Impl",
+                  (void*)FormatStream_GetMode_Impl },
+                { "Schmix.Encoding.FormatStream", "GetStreamIndex_Impl",
+                  (void*)FormatStream_GetStreamIndex_Impl },
+                { "Schmix.Encoding.FormatStream", "GetCodecParameters_Impl",
+                  (void*)FormatStream_GetCodecParameters_Impl },
+                { "Schmix.Encoding.FormatStream", "ReadPacket_Impl",
+                  (void*)FormatStream_ReadPacket_Impl },
+                { "Schmix.Encoding.FormatStream", "WritePacket_Impl",
+                  (void*)FormatStream_WritePacket_Impl },
+                { "Schmix.Encoding.FormatStream", "Flush_Impl", (void*)FormatStream_Flush_Impl },
+
+                { "Schmix.Encoding.CodecStream", "ctor_Impl", (void*)CodecStream_ctor_Impl },
+                { "Schmix.Encoding.CodecStream", "Close_Impl", (void*)CodecStream_Close_Impl },
+                { "Schmix.Encoding.CodecStream", "GetMode_Impl", (void*)CodecStream_GetMode_Impl },
+                { "Schmix.Encoding.CodecStream", "GetParameters_Impl",
+                  (void*)CodecStream_GetParameters_Impl },
+                { "Schmix.Encoding.CodecStream", "GetStreamIndex_Impl",
+                  (void*)CodecStream_GetStreamIndex_Impl },
+                { "Schmix.Encoding.CodecStream", "GetFrameSize_Impl",
+                  (void*)CodecStream_GetFrameSize_Impl },
+                { "Schmix.Encoding.CodecStream", "ReadFrame_Impl",
+                  (void*)CodecStream_ReadFrame_Impl },
+                { "Schmix.Encoding.CodecStream", "WriteFrame_Impl",
+                  (void*)CodecStream_WriteFrame_Impl },
+                { "Schmix.Encoding.CodecStream", "Flush_Impl", (void*)CodecStream_Flush_Impl },
             });
     }
 } // namespace schmix

@@ -14,6 +14,7 @@ internal sealed class SingleNoteMIDIModule : Module
         mPrevCV = mCV = 0;
         mCurrentNote = -1;
         mStart = mEnd = null;
+        mActive = false;
 
         MIDI.OnNoteBegin += OnNoteBegin;
         MIDI.OnNoteEnd += OnNoteEnd;
@@ -76,13 +77,15 @@ internal sealed class SingleNoteMIDIModule : Module
         Log.Trace($"{NameFromID(id)} released");
     }
 
-    private const int GateOutput = 0;
-    private const int CVOutput = 1;
+    private const int PulseOutput = 0;
+    private const int GateOutput = 1;
+    private const int CVOutput = 2;
 
-    public override int OutputCount => 2;
+    public override int OutputCount => 3;
 
     public override string GetOutputName(int index) => index switch
     {
+        PulseOutput => "Pulse",
         GateOutput => "Gate",
         CVOutput => "CV",
         _ => "<unused>"
@@ -90,8 +93,9 @@ internal sealed class SingleNoteMIDIModule : Module
 
     public override string Name => "Single note MIDI";
 
-    private double GetGate(DateTime now)
+    private double GetGate(DateTime now, out bool isActive)
     {
+        isActive = false;
         if (mStart is null || mStart.Value > now)
         {
             return 0;
@@ -102,6 +106,7 @@ internal sealed class SingleNoteMIDIModule : Module
             return 0;
         }
 
+        isActive = true;
         return 1;
     }
 
@@ -120,6 +125,7 @@ internal sealed class SingleNoteMIDIModule : Module
         var chunkStart = DateTime.Now;
         var sampleSpan = TimeSpan.FromSeconds(1.0 / (double)sampleRate);
 
+        var pulseSignal = new StereoSignal<double>(channels, samplesRequested);
         var gateSignal = new StereoSignal<double>(channels, samplesRequested);
         var cvSignal = new StereoSignal<double>(channels, samplesRequested);
 
@@ -127,16 +133,26 @@ internal sealed class SingleNoteMIDIModule : Module
         {
             var now = chunkStart + sampleSpan * i;
 
-            double gate = GetGate(now);
+            double gate = GetGate(now, out bool isActive);
             double cv = GetCV(now);
+
+            double pulse = 0;
+            if (!mActive && isActive)
+            {
+                pulse = 1;
+            }
 
             for (int j = 0; j < channels; j++)
             {
+                pulseSignal[j][i] = pulse;
                 gateSignal[j][i] = gate;
                 cvSignal[j][i] = cv;
             }
+
+            mActive = isActive;
         }
 
+        outputs[PulseOutput]?.PutSignal(pulseSignal);
         outputs[GateOutput]?.PutSignal(gateSignal);
         outputs[CVOutput]?.PutSignal(cvSignal);
     }
@@ -144,6 +160,7 @@ internal sealed class SingleNoteMIDIModule : Module
     private double mPrevCV, mCV;
     private int mCurrentNote;
     private DateTime? mStart, mEnd;
+    private bool mActive;
 }
 
 [RegisteredPlugin("Single note MIDI")]

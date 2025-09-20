@@ -28,6 +28,33 @@ public sealed class EncodingStream : Stream
         Double
     }
 
+    public static Codec GuessCodec(string filename)
+    {
+        if (!TryGuessCodec(filename, out Codec id))
+        {
+            throw new ArgumentException($"Failed to guess codec for filename {id}");
+        }
+
+        return id;
+    }
+
+    public static bool TryGuessCodec(string filename, out Codec id)
+    {
+        id = default;
+
+        bool success;
+        unsafe
+        {
+            using NativeString nativeFilename = filename;
+            fixed (Codec* idPtr = &id)
+            {
+                success = TryGuessCodec_Impl(nativeFilename, idPtr);
+            }
+        }
+
+        return success;
+    }
+
     public EncodingStream(Codec codec, StreamAction action, int channels, int sampleRate, SampleFormat sampleFormat)
     {
         unsafe
@@ -152,6 +179,8 @@ public sealed class EncodingStream : Stream
 
     private byte[] mCurrentChunk;
     private int mChunkCursor;
+
+    internal static unsafe delegate*<NativeString, Codec*, Bool32> TryGuessCodec_Impl = null;
 
     internal static unsafe delegate*<Codec, StreamAction, int, int, SampleFormat, void*> ctor_Impl = null;
     internal static unsafe delegate*<void*, void> Delete_Impl = null;

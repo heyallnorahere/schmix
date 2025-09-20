@@ -4,50 +4,10 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
+#include <libavformat/avformat.h>
 }
 
 namespace schmix {
-    static void avLogCallback(void* avcl, int level, const char* fmt, va_list vl) {
-        static constexpr std::size_t maxMessageLength = 256;
-        char message[maxMessageLength];
-
-        std::vsnprintf(message, maxMessageLength, fmt, vl);
-
-        if (level <= AV_LOG_FATAL) {
-            SCHMIX_CRITICAL("av_log: {}", message);
-            return;
-        }
-
-        if (level <= AV_LOG_ERROR) {
-            SCHMIX_ERROR("av_log: {}", message);
-            return;
-        }
-
-        if (level <= AV_LOG_WARNING) {
-            SCHMIX_WARN("av_log: {}", message);
-            return;
-        }
-
-        if (level <= AV_LOG_INFO) {
-            SCHMIX_INFO("av_log: {}", message);
-            return;
-        }
-
-        if (level <= AV_LOG_VERBOSE) {
-            SCHMIX_DEBUG("av_log: {}", message);
-            return;
-        }
-
-        SCHMIX_TRACE("av_log: {}", message);
-    }
-
-    void EncodingStream::Init() {
-        SCHMIX_DEBUG("Setting FFmpeg log settings...");
-
-        av_log_set_level(AV_LOG_TRACE);
-        av_log_set_callback(avLogCallback);
-    }
-
     static AVCodecID ConvertCodecID(EncodingStream::Codec codec) {
         switch (codec) {
         case EncodingStream::Codec::MP3:
@@ -57,6 +17,36 @@ namespace schmix {
         default:
             return AV_CODEC_ID_NONE;
         }
+    }
+
+    std::optional<EncodingStream::Codec> EncodingStream::GuessCodec(
+        const std::filesystem::path& filename) {
+        static std::unordered_map<AVCodecID, Codec> codecMap;
+        if (codecMap.empty()) {
+            for (std::int32_t i = 0; i < (std::int32_t)Codec::MAX; i++) {
+                auto id = (Codec)i;
+                auto ffmpegID = ConvertCodecID(id);
+
+                if (ffmpegID == AV_CODEC_ID_NONE) {
+                    continue;
+                }
+
+                codecMap[ffmpegID] = id;
+            }
+        }
+
+        auto filenameStr = filename.string();
+        auto format = av_guess_format(nullptr, filenameStr.c_str(), nullptr);
+
+        if (format != nullptr) {
+            auto ffmpegID = format->audio_codec;
+
+            if (codecMap.contains(ffmpegID)) {
+                return codecMap.at(ffmpegID);
+            }
+        }
+
+        return {};
     }
 
     EncodingStream::EncodingStream(Codec codec, Action action, std::size_t channels,

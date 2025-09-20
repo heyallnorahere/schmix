@@ -6,11 +6,13 @@ typedef struct AVCodecContext AVCodecContext;
 namespace schmix {
     class EncodingStream {
     public:
-        enum class Codec : std::int32_t { MP3 = 0, OGG };
+        enum class Codec : std::int32_t { MP3 = 0, OGG, MAX };
         enum class Action : std::int32_t { Encoding = 0, Decoding };
         enum class SampleFormat : std::int32_t { U8 = 0, S16, S32, Float, Double };
 
         static void Init();
+
+        static std::optional<Codec> GuessCodec(const std::filesystem::path& filename);
 
         EncodingStream(Codec codec, Action action, std::size_t channels, std::size_t sampleRate,
                        SampleFormat sampleFormat);
