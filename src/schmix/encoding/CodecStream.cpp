@@ -202,6 +202,8 @@ namespace schmix {
             return false;
         }
 
+        avcodec_flush_buffers(m_Context);
+
         return true;
     }
 

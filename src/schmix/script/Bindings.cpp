@@ -12,7 +12,6 @@
 #include "schmix/ui/ImGuiInstance.h"
 
 #include <Coral/Array.hpp>
-#include <Coral/Memory.hpp>
 
 namespace schmix {
     static void RefCounted_AddRef_Impl(RefCounted* object) {
@@ -33,8 +32,8 @@ namespace schmix {
         g_Logger->log(loc, level, msg.Data());
     }
 
-    static void* Memory_Allocate_Impl(std::size_t size) { return Memory::Allocate(size); }
-    static void Memory_Free_Impl(void* block) { Memory::Free(block); }
+    static void* MemoryAllocator_Allocate_Impl(std::size_t size) { return Memory::Allocate(size); }
+    static void MemoryAllocator_Free_Impl(void* block) { Memory::Free(block); }
 
     static std::uint32_t AudioDevice_GetDummy_Impl() { return AudioDevice::GetDummyID(); }
 
@@ -336,8 +335,8 @@ namespace schmix {
 
                 { "Schmix.Core.Log", "Print_Impl", (void*)Log_Print_Impl },
 
-                { "Schmix.Core.Memory", "Allocate_Impl", (void*)Memory_Allocate_Impl },
-                { "Schmix.Core.Memory", "Free_Impl", (void*)Memory_Free_Impl },
+                { "Schmix.Core.MemoryAllocator", "Allocate_Impl", (void*)MemoryAllocator_Allocate_Impl },
+                { "Schmix.Core.MemoryAllocator", "Free_Impl", (void*)MemoryAllocator_Free_Impl },
 
                 { "Schmix.Audio.AudioDevice", "GetDummy_Impl", (void*)AudioDevice_GetDummy_Impl },
                 { "Schmix.Audio.AudioDevice", "GetDefaultInput_Impl",

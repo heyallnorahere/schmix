@@ -49,4 +49,8 @@ namespace schmix {
     }
 
     std::size_t CodecParameters::GetChannels() const { return m_Parameters->ch_layout.nb_channels; }
+
+    std::int32_t CodecParameters::GetAVSampleFormat() const {
+        return (std::int32_t)m_Parameters->format;
+    }
 } // namespace schmix

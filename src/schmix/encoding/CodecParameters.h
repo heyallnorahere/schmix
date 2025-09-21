@@ -26,6 +26,8 @@ namespace schmix {
 
         // todo: more accessors for bindings
 
+        std::size_t CalculateFrameBufferSize(std::size_t samples) const;
+
     private:
         void Reset();
 

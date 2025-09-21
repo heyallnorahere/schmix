@@ -1,5 +1,7 @@
 namespace Schmix.Encoding;
 
+using Coral.Managed.Interop;
+
 using System;
 using System.IO;
 
@@ -47,9 +49,25 @@ public sealed class CodecStream : Stream
         set => throw new NotSupportedException();
     }
 
+    internal unsafe IO.Mode GetMode() => GetMode_Impl(mAddress);
+    internal unsafe CodecParameters GetParameters() => new CodecParameters(GetParameters_Impl(mAddress));
+    internal unsafe int GetStreamIndex() => GetStreamIndex_Impl(mAddress);
+    internal unsafe int GetFrameSize() => GetFrameSize_Impl(mAddress);
+
+    public IO.Mode Mode => GetMode();
+    public CodecParameters Parameters => GetParameters();
+    public int StreamIndex => GetStreamIndex();
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        throw new NotImplementedException();
+    }
+
     public override void SetLength(long value) => throw new NotSupportedException();
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    private readonly MemoryStream? mOutputBuffer;
 
     private readonly Stream mSource;
     private bool mCloseSource;
@@ -59,4 +77,15 @@ public sealed class CodecStream : Stream
 
     internal static unsafe delegate*<NativeStreamCallbacks*, IO.Mode, void*, int, void*> ctor_Impl = null;
     internal static unsafe delegate*<void*, void> Close_Impl = null;
+
+    internal static unsafe delegate*<void*, int, int> CalculateFrameSize_Impl = null;
+
+    internal static unsafe delegate*<void*, IO.Mode> GetMode_Impl = null;
+    internal static unsafe delegate*<void*, void*> GetParameters_Impl = null;
+    internal static unsafe delegate*<void*, int> GetStreamIndex_Impl = null;
+    internal static unsafe delegate*<void*, int> GetFrameSize_Impl = null;
+
+    internal static unsafe delegate*<void*, void**, int> ReadFrame_Impl = null;
+    internal static unsafe delegate*<void*, void*, int, Bool32> WriteFrame_Impl = null;
+    internal static unsafe delegate*<void*, Bool32> Flush_Impl = null;
 }
