@@ -30,13 +30,17 @@ public readonly unsafe struct CodecParameters : IDisposable
 
     public int Channels => GetChannels_Impl(mAddress);
 
+    public unsafe int CalculateFrameBufferSize(int samples) => CalculateFrameBufferSize_Impl(mAddress, samples);
+
     private readonly void* mAddress;
 
-    private static readonly delegate*<void*> New_Impl = null;
-    private static readonly delegate*<void*, void> Delete_Impl = null;
-    private static readonly delegate*<void*, void*> Duplicate_Impl = null;
+    internal static readonly delegate*<void*> New_Impl = null;
+    internal static readonly delegate*<void*, void> Delete_Impl = null;
+    internal static readonly delegate*<void*, void*> Duplicate_Impl = null;
 
-    private static readonly delegate*<void*, void*> GetRaw_Impl = null;
+    internal static readonly delegate*<void*, void*> GetRaw_Impl = null;
 
-    private static readonly delegate*<void*, int> GetChannels_Impl = null;
+    internal static readonly delegate*<void*, int> GetChannels_Impl = null;
+
+    internal static readonly delegate*<void*, int, int> CalculateFrameBufferSize_Impl = null;
 }

@@ -53,4 +53,11 @@ namespace schmix {
     std::int32_t CodecParameters::GetAVSampleFormat() const {
         return (std::int32_t)m_Parameters->format;
     }
+
+    std::size_t CodecParameters::CalculateFrameBufferSize(std::size_t samples) const {
+        int channels = m_Parameters->ch_layout.nb_channels;
+        auto sampleFormat = (AVSampleFormat)m_Parameters->format;
+
+        return av_samples_get_buffer_size(nullptr, channels, (int)samples, sampleFormat, 0);
+    }
 } // namespace schmix
